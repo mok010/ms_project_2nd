@@ -54,7 +54,9 @@ COSMOS_DB_NAME=your_database_name
 ```
 
 ### 2. 서비스 계정 키 설정
-`service_account_key.json` 파일을 프로젝트 루트에 배치
+1. Google Cloud Console에서 서비스 계정 키를 다운로드
+2. `service_account_key.json` 파일을 프로젝트 루트에 배치
+3. **⚠️ 주의**: 이 파일은 민감한 정보를 포함하므로 Git에 커밋하지 마세요
 
 ### 3. 함수 실행
 ```bash
