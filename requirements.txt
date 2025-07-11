@@ -1,0 +1,8 @@
+azure-functions
+google-cloud-bigquery
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+google-api-core
+azure-cosmos
+pytz
