@@ -30,15 +30,15 @@ def format_success_message(success_counts: Dict[str, int]) -> str:
     total = sum(success_counts.values())
     summary_lines = [f"📊 총 처리된 데이터: {total}개"]
     
-    for container_name, count in success_counts.items():
+    for table_name, count in success_counts.items():
         if count > 0:
-            summary_lines.append(f"  • {container_name}: {count}개")
+            summary_lines.append(f"  • {table_name}: {count}개")
     
     return "\n".join(summary_lines)
 
 def validate_environment_variables() -> bool:
     """환경 변수 검증"""
-    required_vars = ["COSMOS_CONN_STRING", "COSMOS_DB_NAME"]
+    required_vars = ["SQL_SERVER", "SQL_DATABASE", "SQL_USERNAME", "SQL_PASSWORD"]
     missing_vars = []
     
     import os

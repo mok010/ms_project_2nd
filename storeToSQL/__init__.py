@@ -6,8 +6,8 @@ from .data_processors import DataProcessor
 from .utils import format_success_message, create_error_response
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
-    """Azure Function 메인 함수: BigQuery → CosmosDB 데이터 전송"""
-    logging.info("🚀 Azure Function Triggered: BigQuery → CosmosDB")
+    """Azure Function 메인 함수: BigQuery → SQL Database 데이터 전송"""
+    logging.info("🚀 Azure Function Triggered: BigQuery → SQL Database")
 
     try:
         # BigQuery에서 데이터 조회

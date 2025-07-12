@@ -149,3 +149,57 @@ remote:            path: service_account_key.json:1
 - GitHub Push Protection 문서
 - Google Cloud 서비스 계정 보안 가이드
 - Azure Key Vault 서비스 계정 키 관리 
+
+---
+
+## Metadata
+- Timestamp: 2025-07-12 16:42:00 KST
+- Severity: Medium
+- Impacted Systems: storeToCosmos Azure Function, Azure SQL Database
+- Tags: ODBC, SQL Server, 로컬 개발, 드라이버, 테이블 스키마
+
+## Problem Summary
+Azure Functions 로컬 개발 환경에서 CosmosDB 대신 Azure SQL Database로 변경한 후, 로컬에서 `func start` 실행 시 ODBC 드라이버 관련 오류와 테이블 없음 오류가 발생했습니다.
+
+## Root Cause
+- 로컬 컴퓨터에 ODBC Driver가 설치되어 있지 않음
+- 코드에서 지정한 ODBC Driver 버전(17)과 설치된 버전(18) 불일치
+- Azure SQL Database에 필요한 테이블과 스키마가 생성되어 있지 않음
+
+## Resolution Steps
+1. **ODBC Driver 설치**: Microsoft에서 제공하는 ODBC Driver 18 for SQL Server 설치
+2. **드라이버 버전 수정**: clients.py 파일에서 연결 문자열의 드라이버 버전을 17에서 18로 변경
+3. **SQL 스키마 생성**: Azure Portal의 쿼리 편집기에서 ga_data 스키마 생성
+4. **SQL 테이블 생성**: 필요한 7개 테이블(Sessions, Totals, Traffic, DeviceGeo, CustomDimensions, Hits, HitsProduct) 생성
+
+## Error Message / Logs
+**ODBC 드라이버 오류:**
+```
+InterfaceError: ('IM002', '[IM002] [Microsoft][ODBC 드라이버 관리자] 데이터 원본 이름이 없고 기본 드라이버를 지정하지 않았습니다. (0) (SQLDriverConnect)')
+```
+
+**테이블 없음 오류:**
+```
+('42S02', "[42S02] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]Invalid object name 'ga_data.Sessions'. (208) (SQLExecDirectW); [42S02] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]Statement(s) could not be prepared. (8180)")
+```
+
+## Related Commits or Pull Requests
+- clients.py 파일 수정: ODBC Driver 버전 17에서 18로 변경
+- create_tables.sql 스크립트 생성: 필요한 테이블과 스키마 생성
+
+## Reproduction Steps
+1. Azure Functions 로컬 개발 환경 설정
+2. Azure SQL Database 연결 정보 구성
+3. 로컬에서 `func start` 실행
+4. ODBC 드라이버 오류 발생 확인
+5. 드라이버 설치 후 다시 실행하여 테이블 없음 오류 확인
+
+## Prevention / Lessons Learned
+- 클라우드 서비스(Azure SQL Database)를 사용하더라도 로컬 개발 환경에는 필요한 드라이버 설치 필요
+- 연결 문자열에 지정된 드라이버 버전과 실제 설치된 버전 일치 필요
+- 데이터베이스 스키마와 테이블은 코드 배포 전에 미리 생성 필요
+- 로컬 개발과 클라우드 환경의 차이점 이해 필요
+
+## Related Links
+- Microsoft ODBC Driver for SQL Server 다운로드: https://learn.microsoft.com/ko-kr/sql/connect/odbc/download-odbc-driver-for-sql-server
+- Azure SQL Database 연결 문자열 형식: https://learn.microsoft.com/ko-kr/azure/azure-sql/database/connect-query-content-reference-guide 

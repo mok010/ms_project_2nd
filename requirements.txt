@@ -4,5 +4,7 @@ google-auth
 google-auth-oauthlib
 google-auth-httplib2
 google-api-core
-azure-cosmos
 pytz
+azure-identity>=1.15.0
+pyodbc>=4.0.34
+python-dotenv==1.0.0
