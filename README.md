@@ -320,6 +320,72 @@ http://localhost:7071/api/storeToSQL
 5. 변환된 데이터는 배치로 Azure SQL Database에 삽입됩니다.
 6. 처리 결과 요약이 HTTP 응답으로 반환됩니다.
 
+## 📊 데이터 조회 범위 조정
+
+기본적으로 이 프로젝트는 2017년 8월 1일 데이터의 처음 1,000개 행을 가져오도록 설정되어 있습니다. 조회 범위를 조정하려면 다음과 같이 설정을 변경하세요:
+
+### 1. 날짜 변경
+
+다른 날짜의 데이터를 가져오려면 `config.py` 파일에서 `BQ_DATE_SUFFIX` 값을 변경하세요:
+
+```python
+# 예: 2017년 8월 2일 데이터 조회
+BQ_DATE_SUFFIX = "20170802"
+```
+
+### 2. 데이터 수 변경
+
+한 번에 가져올 데이터 수를 변경하려면 `config.py` 파일에서 `BQ_LIMIT` 값을 조정하세요:
+
+```python
+# 예: 2,000개 데이터 조회
+BQ_LIMIT = 2000
+```
+
+### 3. 시작 위치 조정 (페이지네이션)
+
+특정 위치부터 데이터를 가져오려면 `config.py` 파일에 `BQ_OFFSET` 변수를 추가하고, `queries.py` 파일에 OFFSET 구문을 추가하세요:
+
+1. `config.py` 파일 수정:
+```python
+# 예: 처음 1,000개를 건너뛰고 1,001번째부터 데이터 조회
+BQ_OFFSET = 1000
+```
+
+2. `queries.py` 파일에 import 추가:
+```python
+from .config import BQ_DATE_SUFFIX, BQ_LIMIT, BQ_OFFSET
+```
+
+3. 쿼리 마지막에 OFFSET 구문 추가:
+```python
+WHERE _TABLE_SUFFIX = '{BQ_DATE_SUFFIX}'
+OFFSET {BQ_OFFSET}
+LIMIT {BQ_LIMIT}
+```
+
+이렇게 하면 대용량 데이터를 여러 번에 나누어 처리할 수 있습니다. 예를 들어, 처음 1,000개 행을 처리한 후 `BQ_OFFSET = 1000`으로 설정하여 다음 1,000개 행을 처리할 수 있습니다.
+
+### 4. 데이터 조회 예시
+
+다음은 몇 가지 일반적인 시나리오에 대한 설정 예시입니다:
+
+- **특정 날짜의 처음 500개 행 조회**:
+  ```python
+  BQ_DATE_SUFFIX = "20170801"
+  BQ_LIMIT = 500
+  ```
+
+- **특정 날짜의 501번째부터 1,000번째까지 조회**:
+  ```python
+  BQ_DATE_SUFFIX = "20170801"
+  BQ_OFFSET = 500
+  BQ_LIMIT = 500
+  ```
+
+- **여러 날짜의 데이터 처리**:
+  날짜를 반복문으로 변경하며 함수를 여러 번 호출하는 방식으로 구현할 수 있습니다.
+
 ## 🔐 보안 고려사항
 
 - **서비스 계정 키:** Google Cloud 서비스 계정 키는 절대 Git에 커밋하지 마세요. 항상 `.gitignore`에 추가하고 안전하게 관리하세요.

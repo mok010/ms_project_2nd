@@ -1,4 +1,4 @@
-from .config import BQ_DATE_SUFFIX, BQ_LIMIT
+from .config import BQ_DATE_SUFFIX, BQ_LIMIT, BQ_OFFSET
 
 class BigQueryQueries:
     """BigQuery 쿼리를 관리하는 클래스
@@ -153,5 +153,6 @@ class BigQueryQueries:
             LEFT JOIN UNNEST(t.hits) AS h
             LEFT JOIN UNNEST(h.product) AS p
         WHERE _TABLE_SUFFIX = '{BQ_DATE_SUFFIX}'
+        OFFSET {BQ_OFFSET}
         LIMIT {BQ_LIMIT}
         """ 

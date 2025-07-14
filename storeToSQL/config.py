@@ -10,6 +10,7 @@ BQ_DATASET = "bigquery-public-data.google_analytics_sample"
 BQ_TABLE_PREFIX = "ga_sessions_"
 BQ_DATE_SUFFIX = "20170801"
 BQ_LIMIT = 1000
+BQ_OFFSET = 1000  # 1000개 건너뛰고 그 다음부터 데이터 조회
 
 # Azure SQL Database 설정 (환경 변수에서 로드)
 SQL_SERVER = os.environ['SQL_SERVER']  # 예: your-server.database.windows.net
