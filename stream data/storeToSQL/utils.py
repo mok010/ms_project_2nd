@@ -44,13 +44,14 @@ def safe_get_attr(obj, attr_name: str, default=None):
     except Exception:
         return default
 
-def format_success_message(success_counts: Dict[str, int]) -> str:
+def format_success_message(success_counts: Dict[str, int], duplicate_counts: Dict[str, int] = None) -> str:
     """성공 메시지를 포맷팅하는 함수
     
-    각 테이블별 처리된 데이터 수를 요약하여 사용자 친화적인 메시지로 변환합니다.
+    각 테이블별 처리된 데이터 수와 중복 처리된 데이터 수를 요약하여 사용자 친화적인 메시지로 변환합니다.
     
     Args:
         success_counts (Dict[str, int]): 테이블별 성공 카운트
+        duplicate_counts (Dict[str, int], optional): 테이블별 중복 처리 카운트
         
     Returns:
         str: 포맷팅된 성공 메시지
@@ -64,6 +65,13 @@ def format_success_message(success_counts: Dict[str, int]) -> str:
     for table_name, count in success_counts.items():
         if count > 0:
             summary_lines.append(f"  • {table_name}: {count}개")
+    
+    # 중복 처리 정보가 있으면 추가
+    if duplicate_counts and sum(duplicate_counts.values()) > 0:
+        summary_lines.append(f"\n🔄 중복 처리된 데이터:")
+        for table_name, count in duplicate_counts.items():
+            if count > 0:
+                summary_lines.append(f"  • {table_name}: {count}개")
     
     return "\n".join(summary_lines)
 
@@ -181,6 +189,7 @@ def create_error_response(error: Exception, context: str = "") -> str:
     """에러 응답 생성
     
     사용자 친화적인 에러 메시지를 생성합니다.
+    PRIMARY KEY 제약 조건 위반 오류의 경우 특별한 메시지를 제공합니다.
     
     Args:
         error (Exception): 발생한 예외 객체
@@ -192,5 +201,18 @@ def create_error_response(error: Exception, context: str = "") -> str:
     error_msg = f"❌ 오류 발생"
     if context:
         error_msg += f" ({context})"
-    error_msg += f": {str(error)}"
+    
+    # PRIMARY KEY 제약 조건 위반 오류인 경우 특별 처리
+    error_str = str(error)
+    if "Violation of PRIMARY KEY constraint" in error_str and "Cannot insert duplicate key" in error_str:
+        # 중복 키 값 추출 시도
+        import re
+        key_match = re.search(r"The duplicate key value is \((.*?)\)", error_str)
+        duplicate_key = key_match.group(1) if key_match else "알 수 없음"
+        
+        error_msg += f": PRIMARY KEY 제약 조건 위반 - 중복 키 값: {duplicate_key}"
+        error_msg += "\n💡 해결 방안: DataProcessor 클래스에 히트 키 중복 처리 로직이 추가되었습니다. 이 오류는 더 이상 발생하지 않을 것입니다."
+    else:
+        error_msg += f": {error_str}"
+    
     return error_msg 

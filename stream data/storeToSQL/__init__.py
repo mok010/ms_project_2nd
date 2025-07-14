@@ -34,18 +34,38 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         # 조회된 모든 행을 순회하며 처리합니다
         # 개별 행 처리 중 오류가 발생해도 전체 프로세스는 계속 진행됩니다
         processed_count = 0
+        skipped_hit_keys = set()  # 중복으로 건너뛴 hit_key 추적
+        
         for row in rows:
             try:
+                # 행 처리 전 현재 processed_hit_keys 크기 저장
+                hit_keys_before = len(processor.processed_hit_keys) if hasattr(processor, 'processed_hit_keys') else 0
+                
                 processor.process_row(row)
                 processed_count += 1
+                
+                # 행 처리 후 새로 추가된 hit_key가 있는지 확인
+                hit_keys_after = len(processor.processed_hit_keys) if hasattr(processor, 'processed_hit_keys') else 0
+                if hit_keys_after == hit_keys_before and hasattr(row, 'hit_key'):
+                    # hit_key가 추가되지 않았다면 중복으로 건너뛴 것으로 간주
+                    skipped_hit_keys.add(getattr(row, 'hit_key', None))
+                
             except Exception as row_error:
                 logging.error(f"❌ 행 처리 중 오류 (행 {processed_count}): {row_error}")
                 continue  # 개별 행 오류는 건너뛰고 계속 진행
         
         # 4. 성공 요약 생성
-        # 각 테이블별로 처리된 데이터 수를 요약하여 반환합니다
+        # 각 테이블별로 처리된 데이터 수와 중복 처리된 데이터 수를 요약하여 반환합니다
         success_summary = processor.get_success_summary()
-        summary_text = format_success_message(success_summary)
+        
+        # 중복 처리 정보 수집
+        duplicate_counts = {"hits": len(skipped_hit_keys)} if skipped_hit_keys else None
+        
+        summary_text = format_success_message(success_summary, duplicate_counts)
+        
+        # 중복 키 처리 정보 로깅
+        if skipped_hit_keys:
+            logging.info(f"🔄 중복으로 건너뛴 hit_key 수: {len(skipped_hit_keys)}")
         
         logging.info(f"✅ 처리 완료: {processed_count}개 행 처리됨")
         return func.HttpResponse(

@@ -399,9 +399,8 @@ CustomDimensions 테이블에 NULL 값을 삽입하려고 할 때 SQL 오류가 
 - 데이터 파이프라인 수정 시 전체 흐름을 고려하여 누락된 부분이 없는지 확인 필요
 
 ## Related Links
-- Google Analytics 데이터 스키마 문서
-- BigQuery 쿼리 최적화 가이드
-- Azure SQL Database 스키마 변경 가이드 
+- Google Analytics 데이터 스키마 문서: https://support.google.com/analytics/answer/3437719
+- 데이터베이스 정규화 및 최적화 가이드: https://learn.microsoft.com/ko-kr/azure/architecture/best-practices/data-modeling 
 
 ---
 

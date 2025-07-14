@@ -18,7 +18,7 @@ class DataProcessor:
     def __init__(self):
         """DataProcessor 초기화
         
-        테이블 이름 정의, 성공 카운터 초기화, 중복 처리 방지를 위한 세션 키 세트 생성
+        테이블 이름 정의, 성공 카운터 초기화, 중복 처리 방지를 위한 세션 키 및 히트 키 세트 생성
         """
         # 테이블 이름 정의 (스키마 포함)
         self.tables = {
@@ -32,6 +32,9 @@ class DataProcessor:
         self.success_count = {k: 0 for k in self.tables.keys()}
         # 세션 중복 처리를 방지하기 위한 세트
         self.processed_session_keys = set()
+        # 히트 중복 처리를 방지하기 위한 세트 추가
+        self.processed_hit_keys = set()
+        logging.info("DataProcessor 초기화 완료: 세션 및 히트 중복 처리 로직 활성화")
     
     def _convert_yes_no_to_boolean(self, value):
         """BigQuery의 'Yes'/'No' 텍스트 값을 불리언으로 변환합니다.
@@ -77,6 +80,7 @@ class DataProcessor:
                 self._process_devicegeo_data(row, vid, primary_key, session_key)
                 # 처리된 세션으로 등록
                 self.processed_session_keys.add(session_key)
+                logging.debug(f"세션 키 처리 완료: {session_key} (총 {len(self.processed_session_keys)}개)")
             
             # --- 히트 레벨 데이터 처리 ---
             # 히트 데이터가 없는 행(세션 정보만 있는 행)은 여기서 처리를 중단
@@ -245,6 +249,7 @@ class DataProcessor:
         """Hits 데이터를 처리합니다.
         
         페이지 조회, 이벤트 등의 히트 정보를 Hits 테이블에 저장합니다.
+        중복된 hit_key를 가진 데이터는 처리를 건너뜁니다.
         
         Args:
             row: 원본 데이터 행
@@ -253,6 +258,12 @@ class DataProcessor:
             session_key (str): 세션 고유 식별자
             hit_key (str): 히트 고유 식별자
         """
+        # 이미 처리된 히트 키인지 확인
+        if hit_key and hit_key in self.processed_hit_keys:
+            hit_number = getattr(row, 'hits_hitNumber', None)
+            logging.info(f"중복된 hit_key 건너뛰기: {hit_key} (세션: {session_key}, 히트 번호: {hit_number})")
+            return
+            
         hit_id = str(uuid.uuid4())  # 히트 ID 생성
         
         # 불리언 필드 변환
@@ -319,6 +330,11 @@ class DataProcessor:
         # 데이터 삽입
         client_manager.execute_batch(self.tables["hits"], [hits_data], columns)
         self.success_count["hits"] += 1
+        
+        # 처리된 히트 키 등록
+        if hit_key:
+            self.processed_hit_keys.add(hit_key)
+            logging.debug(f"처리된 hit_key 등록: {hit_key} (총 {len(self.processed_hit_keys)}개)")
     
     def _process_products_data(self, row, vid: str, hit_key: str, product_hit_key: str) -> None:
         """HitsProduct 데이터를 처리합니다.
@@ -369,6 +385,12 @@ class DataProcessor:
         # 데이터 삽입
         client_manager.execute_batch(self.tables["products"], [products_data], columns)
         self.success_count["products"] += 1
+        
+        # 히트 키가 중복되었지만 제품 데이터는 성공적으로 저장된 경우 로그 기록
+        if hit_key in self.processed_hit_keys and hit_key != product_hit_key.rsplit('-', 1)[0]:
+            product_sku = getattr(row, 'hits_product_productSKU', None)
+            product_name = getattr(row, 'hits_product_v2ProductName', None)
+            logging.info(f"중복된 hit_key({hit_key})에 연결된 제품 데이터 저장 성공: {product_name or product_sku}")
     
     def get_success_summary(self) -> Dict[str, int]:
         """처리 성공 요약을 반환합니다.
@@ -379,7 +401,9 @@ class DataProcessor:
         return self.success_count
     
     def reset_counters(self) -> None:
-        """성공 카운터를 초기화합니다.
+        """성공 카운터와 중복 처리 세트를 초기화합니다.
         """
         self.success_count = {k: 0 for k in self.tables.keys()}
-        self.processed_session_keys.clear() 
+        self.processed_session_keys.clear()
+        self.processed_hit_keys.clear()  # 히트 키 세트도 초기화
+        logging.info("카운터 및 중복 처리 세트 초기화 완료") 
