@@ -133,25 +133,3 @@ __blobstorage__
 __queuestorage__
 __azurite_db*__.json
 .python_packages
-
-# Sensitive files
-service_account_key.json
-*.key
-*.pem
-*.p12
-*.pfx
-
-# Environment files
-.env
-.env.local
-.env.production
-
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS files
-.DS_Store
-Thumbs.db

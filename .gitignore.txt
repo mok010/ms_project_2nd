@@ -1,0 +1,7 @@
+# 모든 .env 파일 무시
+*.env
+**/*.env
+
+# VSCode나 Python 관련 환경 설정 파일 무시
+local.settings.json
+local.settings.*
