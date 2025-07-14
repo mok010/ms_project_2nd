@@ -564,3 +564,62 @@ N/A
 ## Related Links
 - Power BI 데이터 모델링 가이드
 - Azure SQL Database 관계형 데이터 모델 설계 가이드 
+
+---
+
+## Metadata
+- Timestamp: 2025-07-15 10:30:00 KST
+- Severity: Low
+- Impacted Systems: storeToSQL Azure Function, Azure SQL Database
+- Tags: 데이터 타입, SQL, 스키마, 호환성
+
+## Problem Summary
+BigQuery와 Azure SQL Database 간 데이터 타입 차이로 인해 스키마 정의 시 혼란이 발생했습니다. BigQuery에서는 문자열 데이터 타입으로 STRING을 사용하지만, Azure SQL Database에서는 VARCHAR/NVARCHAR를 사용해야 합니다.
+
+## Root Cause
+- BigQuery와 Azure SQL Database는 서로 다른 데이터베이스 시스템으로, 지원하는 데이터 타입이 다릅니다.
+- BigQuery에서는 문자열 데이터를 'STRING' 타입으로 정의합니다.
+- Azure SQL Database는 SQL Server 기반으로, 문자열 데이터를 'VARCHAR'(ASCII) 또는 'NVARCHAR'(유니코드) 타입으로 정의해야 합니다.
+- 'STRING' 데이터 타입은 Azure SQL Database에서 지원되지 않습니다.
+
+## Resolution Steps
+1. schema.sql 파일에서 모든 문자열 데이터 타입을 Azure SQL Database에서 지원하는 형식으로 정의:
+   - ASCII 문자열: VARCHAR(길이) 사용
+   - 유니코드 문자열(한글 등): NVARCHAR(길이) 사용
+   - 길이 제한 없는 텍스트: NVARCHAR(MAX) 사용
+
+2. 데이터베이스 시스템 간 데이터 타입 매핑 규칙 문서화:
+   - BigQuery STRING → Azure SQL VARCHAR/NVARCHAR
+   - BigQuery INTEGER → Azure SQL INT
+   - BigQuery FLOAT → Azure SQL FLOAT
+   - BigQuery BOOLEAN → Azure SQL BIT
+   - BigQuery TIMESTAMP → Azure SQL DATETIME2
+
+## Error Message / Logs
+```
+Msg 2715, Level 16, State 3, Line X
+Column, parameter, or variable #X: Cannot find data type STRING.
+```
+
+## Related Commits or Pull Requests
+- schema.sql 파일 수정: 데이터 타입 호환성 확보
+
+## Reproduction Steps
+1. Azure SQL Database에서 'STRING' 데이터 타입을 사용하여 테이블 생성 시도
+2. 데이터 타입 오류 발생 확인
+
+## Prevention / Lessons Learned
+- 데이터베이스 시스템 간 데이터 타입 차이를 이해하고 적절한 매핑 필요
+- 데이터 이관 프로젝트에서는 소스와 대상 시스템의 데이터 타입 호환성 확인 필수
+- Azure SQL Database(SQL Server)는 다음 공식 문서에 명시된 데이터 타입만 지원함:
+  https://learn.microsoft.com/en-us/sql/t-sql/data-types/data-types-transact-sql?view=azuresqldb-current
+
+## Related Links
+- Microsoft 공식 문서 - SQL Server 데이터 타입: https://learn.microsoft.com/en-us/sql/t-sql/data-types/data-types-transact-sql?view=azuresqldb-current#character-strings
+  (해당 문서의 "Character strings" 섹션에서 VARCHAR, NVARCHAR 등 문자열 데이터 타입 확인 가능)
+- Microsoft 공식 문서 - SQL Server 문자열 데이터 타입: https://learn.microsoft.com/en-us/sql/t-sql/data-types/char-and-varchar-transact-sql?view=azuresqldb-current
+  (해당 문서에서 VARCHAR 데이터 타입 상세 설명 확인 가능)
+- Microsoft 공식 문서 - SQL Server 유니코드 문자열 데이터 타입: https://learn.microsoft.com/en-us/sql/t-sql/data-types/nchar-and-nvarchar-transact-sql?view=azuresqldb-current
+  (해당 문서에서 NVARCHAR 데이터 타입 상세 설명 확인 가능)
+- BigQuery 데이터 타입: https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types
+- Azure SQL Database 문서: https://learn.microsoft.com/en-us/azure/azure-sql/database/ 

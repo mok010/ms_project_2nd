@@ -520,3 +520,46 @@ LIMIT {BQ_LIMIT}
 - [Azure Functions Python 개발자 가이드](https://docs.microsoft.com/ko-kr/azure/azure-functions/functions-reference-python)
 - [Google BigQuery 문서](https://cloud.google.com/bigquery/docs)
 - [Azure SQL Database 문서](https://docs.microsoft.com/ko-kr/azure/azure-sql/database/)
+
+## 💾 데이터베이스 시스템 간 데이터 타입 매핑
+
+이 프로젝트는 Google BigQuery에서 Azure SQL Database로 데이터를 이동합니다. 두 시스템은 서로 다른 데이터 타입을 사용하므로, 다음과 같은 매핑 규칙을 적용했습니다:
+
+### 데이터 타입 매핑 테이블
+
+| BigQuery 데이터 타입 | Azure SQL Database 데이터 타입 | 설명 |
+|---------------------|----------------------------|------|
+| STRING | VARCHAR / NVARCHAR | BigQuery의 STRING 타입은 Azure SQL에서 VARCHAR(ASCII용) 또는 NVARCHAR(유니코드용)로 매핑 |
+| INTEGER | INT | 4바이트 정수형 |
+| INT64 | BIGINT | 8바이트 정수형 |
+| FLOAT64 | FLOAT | 부동소수점 |
+| BOOLEAN | BIT | 불리언 값 (true/false) |
+| TIMESTAMP | DATETIME2 | 날짜 및 시간 |
+| DATE | DATE | 날짜만 포함 |
+| BYTES | VARBINARY | 바이너리 데이터 |
+| ARRAY | 지원 안 함 | Azure SQL에서는 배열 타입을 직접 지원하지 않음. JSON으로 저장하거나 별도 테이블로 정규화 필요 |
+| STRUCT | 지원 안 함 | Azure SQL에서는 구조체 타입을 직접 지원하지 않음. 별도 테이블로 정규화 필요 |
+
+### 중요 사항
+
+- **문자열 데이터**: BigQuery에서는 모든 문자열을 `STRING` 타입으로 저장하지만, Azure SQL Database에서는 다음과 같이 구분해야 합니다:
+  - `VARCHAR`: ASCII 문자만 포함된 문자열 (영문, 숫자, 특수문자)
+  - `NVARCHAR`: 유니코드 문자가 포함된 문자열 (한글, 일본어, 중국어 등)
+  - 길이 제한: VARCHAR(8000), NVARCHAR(4000)이 최대이며, 더 큰 데이터는 VARCHAR(MAX), NVARCHAR(MAX) 사용
+
+- **숫자 데이터**: 정확한 소수점 계산이 필요한 경우 FLOAT 대신 DECIMAL 타입 사용 권장
+
+- **날짜/시간 데이터**: BigQuery의 TIMESTAMP는 Azure SQL의 DATETIME2로 매핑
+
+### 공식 문서 참조
+
+이 매핑은 다음 공식 문서를 기반으로 합니다:
+
+- [Microsoft SQL Server 데이터 타입](https://learn.microsoft.com/en-us/sql/t-sql/data-types/data-types-transact-sql?view=azuresqldb-current) - Azure SQL Database는 SQL Server와 동일한 데이터 타입을 사용합니다.
+  - [문자열 데이터 타입 (Character strings)](https://learn.microsoft.com/en-us/sql/t-sql/data-types/data-types-transact-sql?view=azuresqldb-current#character-strings) - VARCHAR, NVARCHAR 등 문자열 데이터 타입 설명
+  - [VARCHAR 데이터 타입 상세 설명](https://learn.microsoft.com/en-us/sql/t-sql/data-types/char-and-varchar-transact-sql?view=azuresqldb-current) - ASCII 문자열 저장에 사용
+  - [NVARCHAR 데이터 타입 상세 설명](https://learn.microsoft.com/en-us/sql/t-sql/data-types/nchar-and-nvarchar-transact-sql?view=azuresqldb-current) - 유니코드 문자열 저장에 사용
+- [Google BigQuery 데이터 타입](https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types)
+  - [BigQuery STRING 데이터 타입](https://cloud.google.com/bigquery/docs/reference/standard-sql/data-types#string_type) - BigQuery에서 문자열 저장에 사용
+
+> **참고**: Azure SQL Database에서는 `STRING` 데이터 타입이 지원되지 않습니다. 스키마 정의 시 반드시 `VARCHAR` 또는 `NVARCHAR`를 사용해야 합니다.
