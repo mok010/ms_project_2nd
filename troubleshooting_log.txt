@@ -24,7 +24,7 @@
 6. **유틸리티**: `utils.py`에 성능 모니터링, 에러 처리, 로깅 유틸리티
 7. **메인 함수 간소화**: `__init__.py`를 35줄로 간소화
 8. **시간대 오류 수정**: `time_utils.py`에서 pytz 사용으로 UTC 시간대 오류 해결
-9. **안전한 속성 접근**: 모든 row 속성 접근을 getattr()로 변경하여 AttributeError 방지
+9. **안전한 속성 접근**: 모든 row 속성 접근을 getattr()로 안전하게 변경하여 AttributeError 방지
 10. **환경 변수 검증**: config.py에 환경 변수 검증 로직 추가
 11. **에러 처리 강화**: 개별 행 처리 오류 시에도 전체 프로세스 계속 진행
 12. **BigQuery Iterator 오류 수정**: RowIterator 중복 순회 문제 해결
@@ -203,3 +203,202 @@ InterfaceError: ('IM002', '[IM002] [Microsoft][ODBC 드라이버 관리자] 데�
 ## Related Links
 - Microsoft ODBC Driver for SQL Server 다운로드: https://learn.microsoft.com/ko-kr/sql/connect/odbc/download-odbc-driver-for-sql-server
 - Azure SQL Database 연결 문자열 형식: https://learn.microsoft.com/ko-kr/azure/azure-sql/database/connect-query-content-reference-guide 
+
+---
+
+## Metadata
+- Timestamp: 2023-07-13 14:25:00 KST
+- Severity: Low
+- Impacted Systems: storeToSQL Azure Function
+- Tags: 데이터 처리, 조건부 필터링, SQL
+
+## Problem Summary
+데이터 처리 결과에서 일부 테이블(custom, products)의 데이터 개수가 다른 테이블(sessions, totals, traffic, devicegeo, hits)과 일치하지 않는 문제가 발생했습니다. 세션 데이터는 모두 1000개씩 처리되었으나, custom은 838개, products는 911개만 처리되었습니다.
+
+## Root Cause
+- `data_processors.py` 파일의 `_process_custom_data` 함수에서 customDimensions_index가 None인 경우 데이터 처리를 건너뛰도록 설정됨
+- `_process_products_data` 함수에서 hits_product_v2ProductName이 None인 경우 데이터 처리를 건너뛰도록 설정됨
+- 이로 인해 해당 필드가 없는 데이터는 처리되지 않아 테이블별 데이터 수의 불일치 발생
+
+## Resolution Steps
+1. `data_processors.py` 파일의 `_process_custom_data` 함수에서 조건부 필터링 제거
+   ```python
+   # 수정 전
+   if getattr(row, 'customDimensions_index', None) is None:
+       return
+   ```
+   
+2. `_process_products_data` 함수에서 조건부 필터링 제거
+   ```python
+   # 수정 전
+   if getattr(row, 'hits_product_v2ProductName', None) is None:
+       return
+   ```
+
+3. 두 함수 모두에서 조건 검사를 제거하여 모든 데이터를 처리하도록 수정
+
+## Error Message / Logs
+```
+✅ 저장 완료:
+📊 총 처리된 데이터: 6749개
+  • sessions: 1000개
+  • totals: 1000개
+  • traffic: 1000개
+  • devicegeo: 1000개
+  • custom: 838개
+  • hits: 1000개
+  • products: 911개
+```
+
+## Related Commits or Pull Requests
+- data_processors.py 파일 수정: customDimensions_index 및 hits_product_v2ProductName 관련 조건부 필터링 제거
+
+## Reproduction Steps
+1. 기존 코드로 데이터 처리 실행
+2. 처리 결과 확인하여 테이블별 데이터 수 불일치 확인
+3. data_processors.py 파일의 조건부 필터링 코드 확인
+4. 조건부 필터링 제거 후 데이터 처리 재실행
+
+## Prevention / Lessons Learned
+- 데이터 처리 시 필드 존재 여부에 따른 필터링이 필요한지 명확히 판단 필요
+- 데이터 일관성이 중요한 경우, 조건부 필터링보다 모든 데이터를 처리하고 NULL 값 허용하는 방식 고려
+- 데이터 처리 결과를 정기적으로 모니터링하여 예상과 다른 결과 발생 시 원인 파악 필요
+- 데이터 처리 로직 변경 시 결과에 미치는 영향 사전 검토 필요
+
+## Related Links
+- Azure SQL Database NULL 값 처리 가이드
+- Google Analytics 데이터 구조 문서 
+
+---
+
+## Metadata
+- Timestamp: 2023-07-14 10:35:00 KST
+- Severity: Medium
+- Impacted Systems: storeToSQL Azure Function
+- Tags: 데이터베이스 스키마, NULL 값 제약조건, 테이블 삭제
+
+## Problem Summary
+CustomDimensions 테이블에 NULL 값을 삽입하려고 할 때 SQL 오류가 발생했습니다. dimensionIndex 열이 NOT NULL 제약조건을 가지고 있어 NULL 값을 허용하지 않는 문제가 있었습니다.
+
+## Root Cause
+- CustomDimensions 테이블의 dimensionIndex 열이 NOT NULL 제약조건으로 설정됨
+- 최근 코드 수정으로 customDimensions_index가 NULL인 데이터도 처리하도록 변경했으나 데이터베이스 스키마와 충돌
+- 데이터베이스 스키마와 코드 로직 간의 불일치로 인한 오류 발생
+
+## Resolution Steps
+1. CustomDimensions 테이블을 완전히 제거하기로 결정
+2. schema.sql 파일에서 CustomDimensions 테이블 생성 코드 삭제
+   ```sql
+   -- 삭제된 코드
+   CREATE TABLE ga_data.CustomDimensions (
+       cdId VARCHAR(255) PRIMARY KEY,
+       hitId VARCHAR(255),
+       visitorId VARCHAR(255),
+       dimensionIndex INT NOT NULL,
+       dimensionValue NVARCHAR(MAX)
+   );
+   ```
+
+3. data_processors.py 파일에서 CustomDimensions 관련 처리 로직 제거
+   - tables 딕셔너리에서 "custom" 항목 제거
+   - _process_custom_data 함수를 빈 함수로 변경
+   - process_row 메소드에서 _process_custom_data 함수 호출 제거
+
+4. 데이터베이스에서 테이블 삭제 (Azure Portal 쿼리 편집기 사용)
+   ```sql
+   DROP TABLE IF EXISTS ga_data.CustomDimensions;
+   ```
+
+## Error Message / Logs
+```
+[2025-07-14T02:30:31.830Z] 배치 삽입 실패 (ga_data.CustomDimensions): ('23000', "[23000] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]Cannot insert the value NULL into column 'dimensionIndex', table 'dt016-test-sqldb.ga_data.CustomDimensions'; column does not allow nulls. INSERT fails. (515) (SQLExecDirectW); [23000] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]The statement has been terminated. (3621)")
+[2025-07-14T02:30:31.866Z] 행 처리 중 오류 발생 (fullVisitorId: 5012431536154633744, primary_key: 20170801-0000453): ('23000', "[23000] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]Cannot insert the value NULL into column 'dimensionIndex', table 'dt016-test-sqldb.ga_data.CustomDimensions'; column does not allow nulls. INSERT fails. (515) (SQLExecDirectW); [23000] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]The statement has been terminated. (3621)")
+```
+
+## Related Commits or Pull Requests
+- schema.sql 파일 수정: CustomDimensions 테이블 생성 코드 제거
+- data_processors.py 파일 수정: CustomDimensions 관련 처리 로직 제거
+
+## Reproduction Steps
+1. 코드에서 NULL 값을 허용하도록 수정
+2. 데이터베이스 스키마에서는 NOT NULL 제약조건이 있는 상태
+3. 함수 실행 시 NULL 값을 데이터베이스에 삽입하려고 시도
+4. SQL 오류 발생 확인
+
+## Prevention / Lessons Learned
+- 코드 로직과 데이터베이스 스키마 간의 일관성 유지 필요
+- 데이터베이스 스키마 변경 시 관련 코드도 함께 검토 필요
+- NULL 값 처리 정책을 명확히 수립하고 코드와 스키마에 일관되게 적용
+- 테이블이 필요하지 않은 경우 완전히 제거하여 불필요한 오류 방지
+- 데이터베이스 제약조건과 코드 로직이 충돌할 때는 둘 중 하나를 조정하거나 불필요한 기능 제거 고려
+
+## Related Links
+- SQL Server NOT NULL 제약조건 문서
+- Azure SQL Database 스키마 관리 가이드 
+
+---
+
+## Metadata
+- Timestamp: 2023-07-14 14:20:00 KST
+- Severity: Low
+- Impacted Systems: storeToSQL Azure Function
+- Tags: 데이터베이스 스키마, 필드 추가, 데이터 확장
+
+## Problem Summary
+팀장의 요청으로 Hits 테이블에 product_productQuantity 필드를 추가해야 했습니다. 이 필드는 Google Analytics 데이터에서 제품 수량 정보를 저장하는 용도로 사용됩니다.
+
+## Root Cause
+- 기존 스키마에는 product_productQuantity 필드가 정의되어 있지 않았음
+- BigQuery에서는 p.productQuantity로 데이터가 제공되지만 이를 가져오는 쿼리에 포함되어 있지 않았음
+- 데이터 처리 로직에서도 해당 필드를 처리하는 코드가 없었음
+
+## Resolution Steps
+1. schema.sql 파일의 Hits 테이블 정의에 product_productQuantity 필드 추가
+   ```sql
+   CREATE TABLE ga_data.Hits (
+       -- 기존 필드들...
+       contentGroupUniqueViews2 INT,
+       contentGroupUniqueViews3 INT,
+       product_productQuantity INT,  -- 새로 추가된 필드
+       dataSource VARCHAR(255)
+   );
+   ```
+
+2. data_processors.py 파일의 _process_hits_data 함수 수정
+   - hits_data 배열에 getattr(row, 'hits_product_productQuantity', None) 추가
+   - columns 배열에 "product_productQuantity" 추가
+
+3. queries.py 파일의 BigQuery 쿼리 수정
+   - SELECT 절에 p.productQuantity AS hits_product_productQuantity 추가
+
+4. 데이터베이스에 변경사항 적용 (Azure Portal 쿼리 편집기 사용)
+   ```sql
+   ALTER TABLE ga_data.Hits
+   ADD product_productQuantity INT;
+   ```
+
+## Error Message / Logs
+변경 전에는 해당 필드가 없어 데이터가 누락되었습니다.
+
+## Related Commits or Pull Requests
+- schema.sql 파일 수정: Hits 테이블에 product_productQuantity INT 필드 추가
+- data_processors.py 파일 수정: _process_hits_data 함수에 product_productQuantity 처리 추가
+- queries.py 파일 수정: BigQuery 쿼리에 p.productQuantity AS hits_product_productQuantity 추가
+
+## Reproduction Steps
+1. 팀장의 요청에 따라 제품 수량 정보를 저장할 필드 추가 필요 확인
+2. schema.sql, data_processors.py, queries.py 파일에서 관련 코드 수정
+3. 데이터베이스에 변경사항 적용
+4. 변경된 코드로 함수 실행하여 제품 수량 정보가 정상적으로 저장되는지 확인
+
+## Prevention / Lessons Learned
+- 데이터베이스 스키마 변경 시 관련된 모든 코드 파일을 함께 수정해야 함
+- 데이터 처리 파이프라인에서 필드 추가 시 소스(BigQuery), 처리 로직, 저장소(SQL DB) 모두 일관되게 변경 필요
+- 필드 추가 시 NULL 허용 여부를 명확히 결정하고 스키마에 반영
+- 스키마 변경 후 기존 데이터베이스에 변경사항 적용 필요
+- 데이터 파이프라인 수정 시 전체 흐름을 고려하여 누락된 부분이 없는지 확인 필요
+
+## Related Links
+- Google Analytics 데이터 스키마 문서
+- BigQuery 쿼리 최적화 가이드
+- Azure SQL Database 스키마 변경 가이드 
