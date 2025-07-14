@@ -97,6 +97,152 @@ Azure SQL Database에 생성할 테이블 구조를 정의합니다. 각 테이�
 | **Hits** | 페이지 조회 및 이벤트 | hitId, time, pagePath, eventCategory, product_productQuantity |
 | **HitsProduct** | 제품 조회 및 구매 정보 | productId, v2ProductName, productPrice, productQuantity |
 
+### 테이블 구조 상세
+
+#### 1. Sessions 테이블
+사용자 세션의 기본 정보를 저장합니다.
+
+| 칼럼명 | 데이터 타입 | 설명 |
+|--------|------------|------|
+| primary_key | VARCHAR(255) | 세션 고유 식별자 (날짜-일련번호 형식) |
+| visitorId | VARCHAR(255) | 방문자 ID |
+| visitNumber | INT | 방문자의 방문 횟수 |
+| visitId | INT | 방문 ID |
+| visitStartTime | INT | 방문 시작 시간 (UNIX 타임스탬프) |
+| date | DATE | 방문 날짜 |
+| fullVisitorId | VARCHAR(255) | Google Analytics의 방문자 ID |
+| channelGrouping | VARCHAR(255) | 채널 그룹 (Organic Search, Direct 등) |
+| socialEngagementType | VARCHAR(255) | 소셜 참여 유형 |
+
+#### 2. Totals 테이블
+세션별 집계 데이터를 저장합니다.
+
+| 칼럼명 | 데이터 타입 | 설명 |
+|--------|------------|------|
+| primary_key | VARCHAR(255) | 세션 고유 식별자 |
+| visitorId | VARCHAR(255) | 방문자 ID |
+| visits | INT | 방문 수 |
+| hits | INT | 히트 수 (페이지뷰, 이벤트 등) |
+| pageviews | INT | 페이지뷰 수 |
+| timeOnSite | INT | 사이트 체류 시간 (초) |
+| bounces | INT | 이탈 여부 (1=이탈, 0=비이탈) |
+| transactions | INT | 트랜잭션 수 |
+| transactionRevenue | BIGINT | 트랜잭션 수익 |
+| newVisits | INT | 신규 방문 여부 (1=신규, 0=재방문) |
+| totalTransactionRevenue | BIGINT | 총 트랜잭션 수익 |
+| sessionQualityDim | INT | 세션 품질 점수 (1-100) |
+
+#### 3. Traffic 테이블
+트래픽 소스 정보를 저장합니다.
+
+| 칼럼명 | 데이터 타입 | 설명 |
+|--------|------------|------|
+| primary_key | VARCHAR(255) | 세션 고유 식별자 |
+| visitorId | VARCHAR(255) | 방문자 ID |
+| referralPath | NVARCHAR(MAX) | 참조 경로 |
+| campaign | NVARCHAR(255) | 캠페인 이름 |
+| source | NVARCHAR(255) | 트래픽 소스 (google, facebook 등) |
+| medium | NVARCHAR(255) | 트래픽 매체 (organic, cpc 등) |
+| keyword | NVARCHAR(255) | 검색 키워드 |
+| adContent | NVARCHAR(MAX) | 광고 콘텐츠 |
+| adwordsPage | INT | AdWords 페이지 |
+| adwordsSlot | VARCHAR(255) | AdWords 슬롯 |
+| gclId | VARCHAR(255) | Google Click ID |
+| adNetworkType | VARCHAR(255) | 광고 네트워크 유형 |
+| isVideoAd | BIT | 비디오 광고 여부 |
+| isTrueDirect | BIT | 직접 방문 여부 |
+
+#### 4. DeviceGeo 테이블
+디바이스 및 지리적 정보를 저장합니다.
+
+| 칼럼명 | 데이터 타입 | 설명 |
+|--------|------------|------|
+| primary_key | VARCHAR(255) | 세션 고유 식별자 |
+| visitorId | VARCHAR(255) | 방문자 ID |
+| browser | VARCHAR(255) | 브라우저 (Chrome, Safari 등) |
+| operatingSystem | VARCHAR(255) | 운영체제 (Windows, iOS 등) |
+| isMobile | BIT | 모바일 기기 여부 |
+| javaEnabled | BIT | Java 활성화 여부 |
+| deviceCategory | VARCHAR(255) | 기기 카테고리 (desktop, mobile, tablet) |
+| continent | VARCHAR(255) | 대륙 |
+| subContinent | VARCHAR(255) | 하위 대륙 |
+| country | VARCHAR(255) | 국가 |
+| region | VARCHAR(255) | 지역 |
+| metro | VARCHAR(255) | 대도시권 |
+| city | VARCHAR(255) | 도시 |
+| networkDomain | VARCHAR(255) | 네트워크 도메인 |
+
+#### 5. Hits 테이블
+페이지 조회, 이벤트 등의 히트 정보를 저장합니다.
+
+| 칼럼명 | 데이터 타입 | 설명 |
+|--------|------------|------|
+| hitId | VARCHAR(255) | 히트 고유 식별자 (UUID) |
+| primary_key | VARCHAR(255) | 세션 고유 식별자 |
+| visitorId | VARCHAR(255) | 방문자 ID |
+| hitNumber | INT | 히트 번호 (세션 내 순서) |
+| time | INT | 히트 시간 (세션 시작부터의 밀리초) |
+| hour | INT | 히트 발생 시간 (0-23) |
+| minute | INT | 히트 발생 분 (0-59) |
+| isInteraction | BIT | 상호작용 여부 |
+| isEntrance | BIT | 입구 페이지 여부 |
+| isExit | BIT | 출구 페이지 여부 |
+| pagePath | NVARCHAR(MAX) | 페이지 경로 (URL) |
+| hostname | NVARCHAR(255) | 호스트명 |
+| pageTitle | NVARCHAR(MAX) | 페이지 제목 |
+| searchKeyword | NVARCHAR(255) | 검색 키워드 |
+| transactionId | VARCHAR(255) | 트랜잭션 ID |
+| screenName | VARCHAR(255) | 화면 이름 (모바일 앱) |
+| landingScreenName | VARCHAR(255) | 랜딩 화면 이름 |
+| exitScreenName | VARCHAR(255) | 종료 화면 이름 |
+| screenDepth | INT | 화면 깊이 |
+| eventCategory | VARCHAR(255) | 이벤트 카테고리 |
+| eventAction | VARCHAR(255) | 이벤트 액션 |
+| eventLabel | NVARCHAR(MAX) | 이벤트 라벨 |
+| actionType | VARCHAR(50) | 액션 유형 (클릭, 구매 등) |
+| hitType | VARCHAR(50) | 히트 유형 (PAGE, EVENT 등) |
+| socialNetwork | VARCHAR(255) | 소셜 네트워크 |
+| hasSocialSourceReferral | BIT | 소셜 소스 참조 여부 |
+| contentGroup1 | VARCHAR(255) | 콘텐츠 그룹 1 |
+| contentGroup2 | VARCHAR(255) | 콘텐츠 그룹 2 |
+| contentGroup3 | VARCHAR(255) | 콘텐츠 그룹 3 |
+| previousContentGroup1 | VARCHAR(255) | 이전 콘텐츠 그룹 1 |
+| previousContentGroup2 | VARCHAR(255) | 이전 콘텐츠 그룹 2 |
+| previousContentGroup3 | VARCHAR(255) | 이전 콘텐츠 그룹 3 |
+| contentGroupUniqueViews1 | INT | 콘텐츠 그룹 1 고유 조회수 |
+| contentGroupUniqueViews2 | INT | 콘텐츠 그룹 2 고유 조회수 |
+| contentGroupUniqueViews3 | INT | 콘텐츠 그룹 3 고유 조회수 |
+| product_productQuantity | INT | 제품 수량 |
+| dataSource | VARCHAR(255) | 데이터 소스 |
+
+#### 6. HitsProduct 테이블
+제품 조회 및 구매 정보를 저장합니다.
+
+| 칼럼명 | 데이터 타입 | 설명 |
+|--------|------------|------|
+| productId | VARCHAR(255) | 제품 고유 식별자 (UUID) |
+| hitId | VARCHAR(255) | 히트 ID (Hits 테이블과 연결) |
+| visitorId | VARCHAR(255) | 방문자 ID |
+| hitNumber | INT | 히트 번호 |
+| v2ProductName | NVARCHAR(255) | 제품 이름 |
+| v2ProductCategory | NVARCHAR(255) | 제품 카테고리 |
+| productBrand | NVARCHAR(255) | 제품 브랜드 |
+| productPrice | BIGINT | 제품 가격 |
+| localProductPrice | BIGINT | 현지 통화 제품 가격 |
+| isImpression | BIT | 제품 노출 여부 |
+| isClick | BIT | 제품 클릭 여부 |
+| productListName | NVARCHAR(255) | 제품 목록 이름 |
+| productListPosition | INT | 제품 목록 내 위치 |
+
+### 테이블 간 관계
+
+각 테이블은 `primary_key` 또는 `visitorId`를 통해 연결됩니다:
+
+- **Sessions** 테이블은 기준 테이블로, `primary_key`가 기본 키입니다.
+- **Totals**, **Traffic**, **DeviceGeo** 테이블은 `primary_key`로 **Sessions**와 1:1 관계를 가집니다.
+- **Hits** 테이블은 `primary_key`로 **Sessions**와 1:N 관계를 가집니다.
+- **HitsProduct** 테이블은 `hitId`로 **Hits**와 1:N 관계를 가집니다.
+
 ## 🚀 로컬 환경에서 실행하기
 
 ### 1. 사전 요구사항
