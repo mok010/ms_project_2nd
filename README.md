@@ -90,12 +90,12 @@ Azure SQL Database에 생성할 테이블 구조를 정의합니다. 각 테이�
 
 | 테이블 이름 | 설명 | 주요 필드 |
 |------------|------|----------|
-| **Sessions** | 사용자 세션 정보 | primary_key, visitorId, visitStartTime, date |
-| **Totals** | 세션 집계 데이터 | hits, pageviews, timeOnSite, bounces |
-| **Traffic** | 트래픽 소스 정보 | source, medium, campaign, referralPath |
-| **DeviceGeo** | 디바이스 및 지역 정보 | browser, operatingSystem, country, city |
-| **Hits** | 페이지 조회 및 이벤트 | hitId, time, pagePath, eventCategory, product_productQuantity |
-| **HitsProduct** | 제품 조회 및 구매 정보 | productId, v2ProductName, productPrice, productQuantity |
+| **Sessions** | 사용자 세션 정보 | session_key, primary_key, visitorId, visitStartTime, date |
+| **Totals** | 세션 집계 데이터 | session_key, hits, pageviews, timeOnSite, bounces |
+| **Traffic** | 트래픽 소스 정보 | session_key, source, medium, campaign, referralPath |
+| **DeviceGeo** | 디바이스 및 지역 정보 | session_key, browser, operatingSystem, country, city |
+| **Hits** | 페이지 조회 및 이벤트 | hit_key, session_key, hitId, time, pagePath, eventCategory |
+| **HitsProduct** | 제품 조회 및 구매 정보 | product_hit_key, hit_key, productId, v2ProductName, productPrice |
 
 ### 테이블 구조 상세
 
@@ -104,7 +104,8 @@ Azure SQL Database에 생성할 테이블 구조를 정의합니다. 각 테이�
 
 | 칼럼명 | 데이터 타입 | 설명 |
 |--------|------------|------|
-| primary_key | VARCHAR(255) | 세션 고유 식별자 (날짜-일련번호 형식) |
+| session_key | VARCHAR(255) | 세션 고유 식별자 (fullVisitorId-visitId 형식) |
+| primary_key | VARCHAR(255) | 이전 버전 호환용 키 (날짜-일련번호 형식) |
 | visitorId | VARCHAR(255) | 방문자 ID |
 | visitNumber | INT | 방문자의 방문 횟수 |
 | visitId | INT | 방문 ID |
@@ -119,7 +120,8 @@ Azure SQL Database에 생성할 테이블 구조를 정의합니다. 각 테이�
 
 | 칼럼명 | 데이터 타입 | 설명 |
 |--------|------------|------|
-| primary_key | VARCHAR(255) | 세션 고유 식별자 |
+| session_key | VARCHAR(255) | 세션 고유 식별자 (Sessions 테이블과 연결) |
+| primary_key | VARCHAR(255) | 이전 버전 호환용 키 |
 | visitorId | VARCHAR(255) | 방문자 ID |
 | visits | INT | 방문 수 |
 | hits | INT | 히트 수 (페이지뷰, 이벤트 등) |
@@ -127,9 +129,9 @@ Azure SQL Database에 생성할 테이블 구조를 정의합니다. 각 테이�
 | timeOnSite | INT | 사이트 체류 시간 (초) |
 | bounces | INT | 이탈 여부 (1=이탈, 0=비이탈) |
 | transactions | INT | 트랜잭션 수 |
-| transactionRevenue | BIGINT | 트랜잭션 수익 |
+| transactionRevenue | INTEGER | 트랜잭션 수익 |
 | newVisits | INT | 신규 방문 여부 (1=신규, 0=재방문) |
-| totalTransactionRevenue | BIGINT | 총 트랜잭션 수익 |
+| totalTransactionRevenue | INTEGER | 총 트랜잭션 수익 |
 | sessionQualityDim | INT | 세션 품질 점수 (1-100) |
 
 #### 3. Traffic 테이블
@@ -137,7 +139,8 @@ Azure SQL Database에 생성할 테이블 구조를 정의합니다. 각 테이�
 
 | 칼럼명 | 데이터 타입 | 설명 |
 |--------|------------|------|
-| primary_key | VARCHAR(255) | 세션 고유 식별자 |
+| session_key | VARCHAR(255) | 세션 고유 식별자 (Sessions 테이블과 연결) |
+| primary_key | VARCHAR(255) | 이전 버전 호환용 키 |
 | visitorId | VARCHAR(255) | 방문자 ID |
 | referralPath | NVARCHAR(MAX) | 참조 경로 |
 | campaign | NVARCHAR(255) | 캠페인 이름 |
@@ -157,7 +160,8 @@ Azure SQL Database에 생성할 테이블 구조를 정의합니다. 각 테이�
 
 | 칼럼명 | 데이터 타입 | 설명 |
 |--------|------------|------|
-| primary_key | VARCHAR(255) | 세션 고유 식별자 |
+| session_key | VARCHAR(255) | 세션 고유 식별자 (Sessions 테이블과 연결) |
+| primary_key | VARCHAR(255) | 이전 버전 호환용 키 |
 | visitorId | VARCHAR(255) | 방문자 ID |
 | browser | VARCHAR(255) | 브라우저 (Chrome, Safari 등) |
 | operatingSystem | VARCHAR(255) | 운영체제 (Windows, iOS 등) |
@@ -177,8 +181,10 @@ Azure SQL Database에 생성할 테이블 구조를 정의합니다. 각 테이�
 
 | 칼럼명 | 데이터 타입 | 설명 |
 |--------|------------|------|
-| hitId | VARCHAR(255) | 히트 고유 식별자 (UUID) |
-| primary_key | VARCHAR(255) | 세션 고유 식별자 |
+| hit_key | VARCHAR(255) | 히트 고유 식별자 (fullVisitorId-visitId-hitNumber 형식) |
+| session_key | VARCHAR(255) | 세션 고유 식별자 (Sessions 테이블과 연결) |
+| hitId | VARCHAR(255) | 이전 버전 호환용 히트 ID (UUID) |
+| primary_key | VARCHAR(255) | 이전 버전 호환용 세션 키 |
 | visitorId | VARCHAR(255) | 방문자 ID |
 | hitNumber | INT | 히트 번호 (세션 내 순서) |
 | time | INT | 히트 시간 (세션 시작부터의 밀리초) |
@@ -220,28 +226,120 @@ Azure SQL Database에 생성할 테이블 구조를 정의합니다. 각 테이�
 
 | 칼럼명 | 데이터 타입 | 설명 |
 |--------|------------|------|
-| productId | VARCHAR(255) | 제품 고유 식별자 (UUID) |
-| hitId | VARCHAR(255) | 히트 ID (Hits 테이블과 연결) |
+| product_hit_key | VARCHAR(255) | 상품 히트 고유 식별자 (fullVisitorId-visitId-hitNumber-productSKU 형식) |
+| hit_key | VARCHAR(255) | 히트 고유 식별자 (Hits 테이블과 연결) |
+| productId | VARCHAR(255) | 이전 버전 호환용 제품 ID (UUID) |
+| hitId | VARCHAR(255) | 이전 버전 호환용 히트 ID |
 | visitorId | VARCHAR(255) | 방문자 ID |
 | hitNumber | INT | 히트 번호 |
 | v2ProductName | NVARCHAR(255) | 제품 이름 |
 | v2ProductCategory | NVARCHAR(255) | 제품 카테고리 |
 | productBrand | NVARCHAR(255) | 제품 브랜드 |
-| productPrice | BIGINT | 제품 가격 |
-| localProductPrice | BIGINT | 현지 통화 제품 가격 |
+| productPrice | INTEGER | 제품 가격 |
+| productRevenue | INTEGER | 제품 수익 |
+| localProductPrice | INTEGER | 현지 통화 제품 가격 |
 | isImpression | BIT | 제품 노출 여부 |
 | isClick | BIT | 제품 클릭 여부 |
 | productListName | NVARCHAR(255) | 제품 목록 이름 |
 | productListPosition | INT | 제품 목록 내 위치 |
+| productSKU | VARCHAR(255) | 제품 SKU (재고 관리 단위) |
 
 ### 테이블 간 관계
 
-각 테이블은 `primary_key` 또는 `visitorId`를 통해 연결됩니다:
+각 테이블은 새로 설계된 키 체계를 통해 명확하게 연결됩니다:
 
-- **Sessions** 테이블은 기준 테이블로, `primary_key`가 기본 키입니다.
-- **Totals**, **Traffic**, **DeviceGeo** 테이블은 `primary_key`로 **Sessions**와 1:1 관계를 가집니다.
-- **Hits** 테이블은 `primary_key`로 **Sessions**와 1:N 관계를 가집니다.
-- **HitsProduct** 테이블은 `hitId`로 **Hits**와 1:N 관계를 가집니다.
+```mermaid
+graph TD;
+    A[Sessions<br/>session_key] --> B[Totals<br/>session_key]
+    A --> C[Traffic<br/>session_key]
+    A --> D[DeviceGeo<br/>session_key]
+    A --> E[Hits<br/>session_key]
+    E[Hits<br/>hit_key] --> F[HitsProduct<br/>hit_key]
+```
+
+- **세션 레벨 테이블**: Sessions, Totals, Traffic, DeviceGeo 테이블은 모두 `session_key`를 통해 연결됩니다. 이 키는 `fullVisitorId-visitId` 형식으로 세션을 고유하게 식별합니다.
+
+- **히트 레벨 테이블**: Hits 테이블은 `session_key`를 통해 Sessions 테이블과 연결되고, `hit_key`를 통해 HitsProduct 테이블과 연결됩니다. `hit_key`는 `fullVisitorId-visitId-hitNumber` 형식으로 히트를 고유하게 식별합니다.
+
+- **상품 레벨 테이블**: HitsProduct 테이블은 `hit_key`를 통해 Hits 테이블과 연결되고, `product_hit_key`를 통해 상품을 고유하게 식별합니다. `product_hit_key`는 `fullVisitorId-visitId-hitNumber-productSKU` 형식입니다.
+
+## 🔗 Power BI 연동 가이드
+
+이 프로젝트는 Power BI와의 원활한 연동을 위해 특별히 설계되었습니다. 다음은 Power BI에서 데이터 모델을 구성하는 방법입니다.
+
+### 1. Power BI에서 데이터 가져오기
+
+1. Power BI Desktop을 엽니다.
+2. '데이터 가져오기' > 'SQL Server'를 선택합니다.
+3. 서버 이름과 데이터베이스 이름을 입력합니다.
+4. '직접 쿼리' 또는 '가져오기' 중 원하는 방식을 선택합니다.
+5. 'ga_data' 스키마의 모든 테이블을 선택합니다:
+   - Sessions
+   - Totals
+   - Traffic
+   - DeviceGeo
+   - Hits
+   - HitsProduct
+
+### 2. 테이블 간 관계 설정
+
+Power BI의 '모델' 뷰에서 다음과 같이 테이블 간 관계를 설정합니다:
+
+1. **세션 레벨 관계**:
+   - Sessions 테이블의 `session_key`를 Totals 테이블의 `session_key`로 연결합니다.
+   - Sessions 테이블의 `session_key`를 Traffic 테이블의 `session_key`로 연결합니다.
+   - Sessions 테이블의 `session_key`를 DeviceGeo 테이블의 `session_key`로 연결합니다.
+   - Sessions 테이블의 `session_key`를 Hits 테이블의 `session_key`로 연결합니다.
+
+2. **히트 레벨 관계**:
+   - Hits 테이블의 `hit_key`를 HitsProduct 테이블의 `hit_key`로 연결합니다.
+
+3. **관계 속성 설정**:
+   - 모든 관계에서 '교차 필터 방향'을 '단일'로 설정합니다.
+   - 세션 레벨 테이블 간 관계는 '1:1'로 설정합니다.
+   - Sessions와 Hits 간 관계는 '1:다'로 설정합니다.
+   - Hits와 HitsProduct 간 관계는 '1:다'로 설정합니다.
+
+### 3. 데이터 모델 최적화
+
+1. **계층 구조 생성**:
+   - DeviceGeo 테이블에서 지역 계층 구조 생성: 대륙 > 하위 대륙 > 국가 > 지역 > 도시
+   - HitsProduct 테이블에서 제품 계층 구조 생성: 카테고리 > 브랜드 > 제품명
+
+2. **측정값 생성**:
+   - 방문자 수: `DISTINCTCOUNT(Sessions[fullVisitorId])`
+   - 세션 수: `COUNTROWS(Sessions)`
+   - 페이지뷰 수: `SUM(Totals[pageviews])`
+   - 평균 세션 시간: `AVERAGE(Totals[timeOnSite])`
+   - 이탈률: `DIVIDE(COUNTROWS(FILTER(Totals, Totals[bounces] = 1)), COUNTROWS(Totals))`
+
+3. **계산 열 추가**:
+   - 세션 날짜(형식 변환): `FORMAT(Sessions[date], "yyyy-MM-dd")`
+   - 방문 유형: `IF(Totals[newVisits] = 1, "신규 방문", "재방문")`
+
+### 4. 대시보드 구성 예시
+
+1. **개요 페이지**:
+   - 방문자 수, 세션 수, 페이지뷰 수, 평균 세션 시간, 이탈률을 카드 형태로 표시
+   - 일별/주별/월별 트렌드를 선 그래프로 표시
+   - 채널별 세션 분포를 도넛 차트로 표시
+
+2. **지역 분석 페이지**:
+   - 국가별 방문자 분포를 지도로 표시
+   - 상위 10개 도시를 막대 그래프로 표시
+   - 디바이스 유형별 세션 분포를 파이 차트로 표시
+
+3. **콘텐츠 분석 페이지**:
+   - 상위 페이지를 테이블로 표시
+   - 콘텐츠 그룹별 페이지뷰를 막대 그래프로 표시
+   - 입구/출구 페이지 분석을 테이블로 표시
+
+4. **전환 분석 페이지**:
+   - 전환 단계별 이탈률을 깔때기 차트로 표시
+   - 제품별 매출을 테이블로 표시
+   - 채널별 전환율을 막대 그래프로 표시
+
+이렇게 설정된 Power BI 데이터 모델은 Google Analytics 데이터를 다양한 각도에서 분석할 수 있는 강력한 도구가 됩니다.
 
 ## 🚀 로컬 환경에서 실행하기
 

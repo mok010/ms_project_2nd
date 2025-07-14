@@ -30,6 +30,12 @@ class BigQueryQueries:
         -- [Base]
             -- Primary Key : 고유 ID
             CONCAT(date, '-', FORMAT('%07d', ROW_NUMBER() OVER(PARTITION BY date ORDER BY visitStartTime))) AS primary_key,
+            -- 세션 키 : 세션 고유 식별자
+            CONCAT(t.fullVisitorId, '-', CAST(t.visitId AS STRING)) AS session_key,
+            -- 히트 키 : 히트 고유 식별자
+            CONCAT(t.fullVisitorId, '-', CAST(t.visitId AS STRING), '-', CAST(h.hitNumber AS STRING)) AS hit_key,
+            -- 상품 히트 키 : 상품 히트 고유 식별자
+            CONCAT(t.fullVisitorId, '-', CAST(t.visitId AS STRING), '-', CAST(h.hitNumber AS STRING), '-', IFNULL(p.productSKU, 'null')) AS product_hit_key,
             -- 날짜 & 시간
             t.date AS date, 
             t.visitStartTime AS visitStartTime, 
@@ -52,7 +58,7 @@ class BigQueryQueries:
                 WHEN t.totals.bounces = 1 THEN 'Bounce'
                 ELSE 'Non-Bounce'
             END AS totals_bounces,
-            t.totals.totalTransactionRevenue / 1000000 AS totals_totalTransactionRevenue, 
+            ROUND(t.totals.totalTransactionRevenue / 1000000, 2) AS totals_totalTransactionRevenue, 
             -- 특정 세션 내 정보
             t.totals.hits AS totals_hits, 
             t.totals.pageviews AS totals_pageviews, 
@@ -66,10 +72,7 @@ class BigQueryQueries:
             t.trafficSource.medium AS trafficSource_medium, 
             t.trafficSource.referralPath AS trafficSource_referralPath, 
             t.trafficSource.keyword AS trafficSource_keyword, 
-            CASE
-                WHEN t.trafficSource.isTrueDirect = TRUE THEN 'True Direct'
-                ELSE 'Not Direct'
-            END AS trafficSource_isTrueDirect, 
+            IFNULL(t.trafficSource.isTrueDirect, FALSE) AS trafficSource_isTrueDirect,
             t.trafficSource.adContent AS trafficSource_adContent, 
             t.trafficSource.adwordsClickInfo.adNetworkType AS trafficSource_adNetworkType, 
             t.trafficSource.adwordsClickInfo.page AS trafficSource_adPage, 
@@ -98,9 +101,9 @@ class BigQueryQueries:
             h.time AS hits_time, 
             h.hour AS hits_hour, 
             h.minute AS hits_minute, 
-            h.isInteraction AS hits_isInteraction, 
-            h.isEntrance AS hits_isEntrance, 
-            h.isExit AS hits_isExit, 
+            IFNULL(h.isInteraction, FALSE) AS hits_isInteraction,
+            IFNULL(h.isEntrance, FALSE) AS hits_isEntrance,
+            IFNULL(h.isExit, FALSE) AS hits_isExit,
             h.page.pagePath AS hits_page_pagePath, 
             h.page.pageTitle AS hits_page_pageTitle, 
             h.transaction.transactionId AS hits_transaction_transactionId, 
@@ -120,6 +123,7 @@ class BigQueryQueries:
                 WHEN '5' THEN 'Checkout'
                 WHEN '6' THEN 'Purchase'
                 WHEN '7' THEN 'Refund'
+                WHEN '8' THEN 'Checkout options'
                 ELSE 'Unknown'
             END AS hits_eCommerceAction_action_type,
 
@@ -140,12 +144,14 @@ class BigQueryQueries:
             p.v2ProductName AS hits_product_v2ProductName, 
             p.v2ProductCategory AS hits_product_v2ProductCategory, 
             p.productBrand AS hits_product_productBrand, 
-            p.productPrice / 1000000 AS hits_product_productPrice, 
-            p.productQuantity AS hits_product_productQuantity,
-            p.isImpression AS hits_product_isImpression, 
-            p.isClick AS hits_product_isClick, 
+            ROUND(p.productRevenue / 1000000, 2) AS hits_product_productRevenue, 
+            ROUND(p.productPrice / 1000000, 2) AS hits_product_productPrice, 
+            p.productQuantity AS hits_product_productQuantity, 
+            IFNULL(p.isImpression, FALSE) AS hits_product_isImpression,
+            IFNULL(p.isClick, FALSE) AS hits_product_isClick,
             p.productListName AS hits_product_productListName, 
-            p.productListPosition AS hits_product_productListPosition
+            p.productListPosition AS hits_product_productListPosition,
+            p.productSKU AS hits_product_productSKU
 
         FROM
             `bigquery-public-data.google_analytics_sample.ga_sessions_*` AS t

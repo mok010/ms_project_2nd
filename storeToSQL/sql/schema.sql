@@ -19,7 +19,8 @@ GO
 -- Sessions 테이블 생성
 -- 사용자 세션 기본 정보를 저장하는 테이블
 CREATE TABLE ga_data.Sessions (
-    primary_key VARCHAR(255) PRIMARY KEY,  -- 세션 고유 식별자 (날짜-일련번호 형식)
+    session_key VARCHAR(255) PRIMARY KEY,  -- 세션 고유 식별자 (fullVisitorId-visitId 형식)
+    primary_key VARCHAR(255),              -- 이전 버전 호환용 키 (날짜-일련번호 형식)
     visitorId VARCHAR(255),                -- 방문자 ID (fullVisitorId 또는 생성된 UUID)
     visitNumber INT,                       -- 방문자의 방문 횟수
     visitId INT,                           -- 방문 ID
@@ -34,7 +35,8 @@ GO
 -- Totals 테이블 생성
 -- 세션별 집계 데이터를 저장하는 테이블
 CREATE TABLE ga_data.Totals (
-    primary_key VARCHAR(255) PRIMARY KEY,  -- 세션 고유 식별자 (Sessions 테이블과 연결)
+    session_key VARCHAR(255) PRIMARY KEY,  -- 세션 고유 식별자 (Sessions 테이블과 연결)
+    primary_key VARCHAR(255),              -- 이전 버전 호환용 키
     visitorId VARCHAR(255),                -- 방문자 ID
     visits INT,                            -- 방문 수
     hits INT,                              -- 히트 수 (페이지뷰, 이벤트 등)
@@ -42,9 +44,9 @@ CREATE TABLE ga_data.Totals (
     timeOnSite INT,                        -- 사이트 체류 시간 (초)
     bounces INT,                           -- 이탈 여부 (1=이탈, 0=비이탈)
     transactions INT,                      -- 트랜잭션 수
-    transactionRevenue BIGINT,             -- 트랜잭션 수익
+    transactionRevenue INTEGER,            -- 트랜잭션 수익
     newVisits INT,                         -- 신규 방문 여부 (1=신규, 0=재방문)
-    totalTransactionRevenue BIGINT,        -- 총 트랜잭션 수익
+    totalTransactionRevenue INTEGER,       -- 총 트랜잭션 수익
     sessionQualityDim INT                  -- 세션 품질 점수 (1-100)
 );
 GO
@@ -52,7 +54,8 @@ GO
 -- Traffic 테이블 생성
 -- 트래픽 소스 정보를 저장하는 테이블
 CREATE TABLE ga_data.Traffic (
-    primary_key VARCHAR(255) PRIMARY KEY,  -- 세션 고유 식별자 (Sessions 테이블과 연결)
+    session_key VARCHAR(255) PRIMARY KEY,  -- 세션 고유 식별자 (Sessions 테이블과 연결)
+    primary_key VARCHAR(255),              -- 이전 버전 호환용 키
     visitorId VARCHAR(255),                -- 방문자 ID
     referralPath NVARCHAR(MAX),            -- 참조 경로
     campaign NVARCHAR(255),                -- 캠페인 이름
@@ -72,7 +75,8 @@ GO
 -- DeviceGeo 테이블 생성
 -- 디바이스 및 지리적 정보를 저장하는 테이블
 CREATE TABLE ga_data.DeviceGeo (
-    primary_key VARCHAR(255) PRIMARY KEY,  -- 세션 고유 식별자 (Sessions 테이블과 연결)
+    session_key VARCHAR(255) PRIMARY KEY,  -- 세션 고유 식별자 (Sessions 테이블과 연결)
+    primary_key VARCHAR(255),              -- 이전 버전 호환용 키
     visitorId VARCHAR(255),                -- 방문자 ID
     browser VARCHAR(255),                  -- 브라우저 (Chrome, Safari 등)
     operatingSystem VARCHAR(255),          -- 운영체제 (Windows, iOS 등)
@@ -92,8 +96,10 @@ GO
 -- Hits 테이블 생성
 -- 페이지 조회, 이벤트 등의 히트 정보를 저장하는 테이블
 CREATE TABLE ga_data.Hits (
-    hitId VARCHAR(255) PRIMARY KEY,        -- 히트 고유 식별자 (UUID)
-    primary_key VARCHAR(255),              -- 세션 고유 식별자 (Sessions 테이블과 연결)
+    hit_key VARCHAR(255) PRIMARY KEY,      -- 히트 고유 식별자 (fullVisitorId-visitId-hitNumber 형식)
+    session_key VARCHAR(255),              -- 세션 고유 식별자 (Sessions 테이블과 연결)
+    hitId VARCHAR(255),                    -- 이전 버전 호환용 히트 ID (UUID)
+    primary_key VARCHAR(255),              -- 이전 버전 호환용 세션 키
     visitorId VARCHAR(255),                -- 방문자 ID
     hitNumber INT,                         -- 히트 번호 (세션 내 순서)
     time INT,                              -- 히트 시간 (세션 시작부터의 밀리초)
@@ -135,19 +141,23 @@ GO
 -- HitsProduct 테이블 생성
 -- 제품 조회 및 구매 정보를 저장하는 테이블
 CREATE TABLE ga_data.HitsProduct (
-    productId VARCHAR(255) PRIMARY KEY,    -- 제품 고유 식별자 (UUID)
-    hitId VARCHAR(255),                    -- 히트 ID (Hits 테이블과 연결)
-    visitorId VARCHAR(255),                -- 방문자 ID
-    hitNumber INT,                         -- 히트 번호
-    v2ProductName NVARCHAR(255),           -- 제품 이름
-    v2ProductCategory NVARCHAR(255),       -- 제품 카테고리
-    productBrand NVARCHAR(255),            -- 제품 브랜드
-    productPrice BIGINT,                   -- 제품 가격
-    localProductPrice BIGINT,              -- 현지 통화 제품 가격
-    isImpression BIT,                      -- 제품 노출 여부
-    isClick BIT,                           -- 제품 클릭 여부
-    productListName NVARCHAR(255),         -- 제품 목록 이름
-    productListPosition INT                -- 제품 목록 내 위치
+    product_hit_key VARCHAR(255) PRIMARY KEY,  -- 상품 히트 고유 식별자 (fullVisitorId-visitId-hitNumber-productSKU 형식)
+    hit_key VARCHAR(255),                      -- 히트 고유 식별자 (Hits 테이블과 연결)
+    productId VARCHAR(255),                    -- 이전 버전 호환용 제품 ID (UUID)
+    hitId VARCHAR(255),                        -- 이전 버전 호환용 히트 ID
+    visitorId VARCHAR(255),                    -- 방문자 ID
+    hitNumber INT,                             -- 히트 번호
+    v2ProductName NVARCHAR(255),               -- 제품 이름
+    v2ProductCategory NVARCHAR(255),           -- 제품 카테고리
+    productBrand NVARCHAR(255),                -- 제품 브랜드
+    productPrice INTEGER,                      -- 제품 가격
+    productRevenue INTEGER,                    -- 제품 수익
+    localProductPrice INTEGER,                 -- 현지 통화 제품 가격
+    isImpression BIT,                          -- 제품 노출 여부
+    isClick BIT,                               -- 제품 클릭 여부
+    productListName NVARCHAR(255),             -- 제품 목록 이름
+    productListPosition INT,                   -- 제품 목록 내 위치
+    productSKU VARCHAR(255)                    -- 제품 SKU (재고 관리 단위)
 );
 GO
 
@@ -156,4 +166,9 @@ GO
 CREATE INDEX IX_Sessions_VisitStartTime ON ga_data.Sessions(visitStartTime);
 CREATE INDEX IX_Hits_Time ON ga_data.Hits(time);
 CREATE INDEX IX_Traffic_Source ON ga_data.Traffic(source);
-CREATE INDEX IX_DeviceGeo_Country ON ga_data.DeviceGeo(country); 
+CREATE INDEX IX_DeviceGeo_Country ON ga_data.DeviceGeo(country);
+CREATE INDEX IX_Sessions_SessionKey ON ga_data.Sessions(session_key);
+CREATE INDEX IX_Hits_SessionKey ON ga_data.Hits(session_key);
+CREATE INDEX IX_Hits_HitKey ON ga_data.Hits(hit_key);
+CREATE INDEX IX_HitsProduct_HitKey ON ga_data.HitsProduct(hit_key);
+GO 
