@@ -1,0 +1,5 @@
+2nd-openai/venv/
+2nd-openai/.vscode/
+2nd-openai/.wdm/
+*.sqlite3
+.env
