@@ -9,15 +9,22 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# 환경 변수 로드
+AZURE_FUNCTION_SQL_API_URL = os.getenv("AZURE_FUNCTION_SQL_API_URL")
+if not AZURE_FUNCTION_SQL_API_URL:
+    raise ValueError("AZURE_FUNCTION_SQL_API_URL 환경 변수가 설정되지 않았습니다. .env 파일을 확인하거나 배포 환경 설정을 확인하세요.")
+
+# Azure OpenAI 클라이언트 초기화
 openai_client = AzureOpenAI(
     api_key=os.getenv("AZURE_OPENAI_API_KEY"),
     azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-    api_version=os.getenv("AZURE_API_VERSION")
+    api_version=os.getenv("AZURE_API_VERSION") # 일반적인 GPT 모델용 API 버전
 )
 
+# Azure Search 클라이언트 초기화
 search_client = SearchClient(
     endpoint=os.getenv("AZURE_SEARCH_ENDPOINT"),
-    index_name=os.getenv("AZURE_SEARCH_INDEX_NAME"),
+    index_name=os.getenv("AZURE_SEARCH_INDEX_NAME"), # paper-index
     credential=AzureKeyCredential(os.getenv("AZURE_SEARCH_ADMIN_KEY"))
 )
 
@@ -42,13 +49,12 @@ class SmartChatbotAPIView(APIView):
                         "각 항목은 질문 속 해당 내용을 문장 단위로 발췌해서 넣고, 없으면 빈 문자열로 두세요.\n"
                         "다음 JSON 형식으로만 응답하세요:\n"
                         "{\n"
-                        "  \"db_query\": \"...\",\n"
-                        "  \"rag_query\": \"...\",\n"
-                        "  \"reasoning\": \"...\"\n"
+                        " \"db_query\": \"...\",\n"
+                        " \"rag_query\": \"...\",\n"
+                        " \"reasoning\": \"...\"\n"
                         "}"
                     )
                     }
-
                     ,
                     {"role": "user", "content": user_question_kr}
                 ]
@@ -77,7 +83,7 @@ class SmartChatbotAPIView(APIView):
             if db_query:
                 try:
                     func_response = requests.post(
-                        "http://localhost:7071/api/sqlquery",
+                        AZURE_FUNCTION_SQL_API_URL,
                         json={"question": db_query},
                         timeout=360
                     )
@@ -97,6 +103,7 @@ class SmartChatbotAPIView(APIView):
             # Step 2: RAG 처리
             if rag_query:
                 try:
+                    # 1. 사용자 질문(rag_query_en)을 번역
                     translate_response = openai_client.chat.completions.create(
                         model=os.getenv("AZURE_DEPLOYMENT_NAME"),
                         messages=[
@@ -106,12 +113,29 @@ class SmartChatbotAPIView(APIView):
                     )
                     rag_query_en = translate_response.choices[0].message.content.strip()
 
-                    search_results = search_client.search(
-                        rag_query_en,
-                        query_type="semantic",
-                        semantic_configuration_name="default",
-                        top=3
+                    # 2. 번역된 질문을 임베딩 벡터로 변환
+                    embedding_response = openai_client.embeddings.create(
+                        model=os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT"), # .env의 임베딩 배포 이름 사용
+                        input=rag_query_en,
+                        api_version=os.getenv("AZURE_OPENAI_EMBEDDING_API_VERSION") # .env의 임베딩 API 버전 사용
                     )
+                    query_vector = embedding_response.data[0].embedding
+
+                    # 3. Azure AI Search 호출 시 벡터 쿼리 사용
+                    search_results = search_client.search(
+                        query_text=rag_query_en, # 하이브리드 검색을 위해 텍스트 쿼리도 함께 사용 (시맨틱 + 벡터)
+                        vectors=[
+                            {
+                                "value": query_vector, # 임베딩된 벡터 값
+                                "k": 3, # 검색할 K개의 최 근접 이웃
+                                "fields": "embedding" # 인덱스 JSON에 정의된 벡터 필드 이름: "embedding"
+                            }
+                        ],
+                        query_type="semantic", # 시맨틱 랭킹도 함께 사용
+                        semantic_configuration_name="default", # 시맨틱 검색 구성 이름
+                        top=3 # 최종 반환할 결과 문서의 수
+                    )
+
                     docs = [doc.get("content", "") for doc in search_results if doc.get("content")]
                     if docs:
                         documents_str = "\n\n".join(docs)
@@ -119,7 +143,7 @@ class SmartChatbotAPIView(APIView):
                         documents_str = "관련 문서를 찾을 수 없었습니다."
                 except Exception as e:
                     print("문서 검색 실패:", str(e))
-                    documents_str = "문서 검색에 실패했습니다."
+                    documents_str = "문서 검색에 실패했습니다. 오류: " + str(e)
 
             # Step 3: 프롬프트 구성
             prompt_parts = [f"[사용자 질문]\n{user_question_kr}"]
