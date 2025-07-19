@@ -1,41 +1,66 @@
+import os
+import json
+import requests
+import re
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-import os, json, requests, re
 from openai import AzureOpenAI
 from azure.search.documents import SearchClient
 from azure.core.credentials import AzureKeyCredential
 from dotenv import load_dotenv
+import traceback
+
+# 수정된 import: SearchOptions 제거, VectorizableTextQuery 사용
+from azure.search.documents.models import VectorizableTextQuery
 
 load_dotenv()
 
 # 환경 변수 로드
 AZURE_FUNCTION_SQL_API_URL = os.getenv("AZURE_FUNCTION_SQL_API_URL")
 if not AZURE_FUNCTION_SQL_API_URL:
+    print("CRITICAL ERROR: AZURE_FUNCTION_SQL_API_URL 환경 변수가 설정되지 않았습니다.")
     raise ValueError("AZURE_FUNCTION_SQL_API_URL 환경 변수가 설정되지 않았습니다. .env 파일을 확인하거나 배포 환경 설정을 확인하세요.")
 
 # Azure OpenAI 클라이언트 초기화
-openai_client = AzureOpenAI(
-    api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-    azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-    api_version=os.getenv("AZURE_API_VERSION") # 일반적인 GPT 모델용 API 버전
-)
+try:
+    openai_client = AzureOpenAI(
+        api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+        azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
+        api_version=os.getenv("AZURE_API_VERSION") # 일반적인 GPT 모델용 API 버전
+    )
+    print("DEBUG: Azure OpenAI client initialized successfully at global scope.")
+except Exception as e:
+    print(f"CRITICAL ERROR: Failed to initialize Azure OpenAI client at global scope: {e}")
+    traceback.print_exc()
+    raise # 초기화 실패 시 애플리케이션 시작을 중단
 
 # Azure Search 클라이언트 초기화
-search_client = SearchClient(
-    endpoint=os.getenv("AZURE_SEARCH_ENDPOINT"),
-    index_name=os.getenv("AZURE_SEARCH_INDEX_NAME"), # paper-index
-    credential=AzureKeyCredential(os.getenv("AZURE_SEARCH_ADMIN_KEY"))
-)
+try:
+    search_client = SearchClient(
+        endpoint=os.getenv("AZURE_SEARCH_ENDPOINT"),
+        index_name=os.getenv("AZURE_SEARCH_INDEX_NAME"), # paper-index
+        credential=AzureKeyCredential(os.getenv("AZURE_SEARCH_ADMIN_KEY"))
+    )
+    print("DEBUG: Azure Search client initialized successfully at global scope.")
+except Exception as e:
+    print(f"CRITICAL ERROR: Failed to initialize Azure AI Search client at global scope: {e}")
+    traceback.print_exc()
+    raise # 초기화 실패 시 애플리케이션 시작을 중단
 
 class SmartChatbotAPIView(APIView):
     def post(self, request):
+        print("DEBUG: SmartChatbotAPIView.post method started.")
         user_question_kr = request.data.get("question", "")
+        print(f"DEBUG: Received user_question_kr: '{user_question_kr}'")
+
         if not user_question_kr:
+            print("DEBUG: User question is empty. Returning 400.")
             return Response({"error": "질문이 없습니다."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             # Step 0: 질문 분해
+            print("DEBUG: Starting Step 0: Question decomposition.")
             decompose_response = openai_client.chat.completions.create(
                 model=os.getenv("AZURE_DEPLOYMENT_NAME"),
                 messages=[
@@ -61,27 +86,31 @@ class SmartChatbotAPIView(APIView):
             )
 
             raw_content = decompose_response.choices[0].message.content.strip()
-            print("질문 분해 응답:\n", raw_content)
+            print(f"DEBUG: Decomposed raw_content: {raw_content}")
 
             try:
                 decomposed = json.loads(raw_content)
             except json.JSONDecodeError:
-                # YAML 스타일 fallback 파싱
+                print("DEBUG: JSONDecodeError. Attempting YAML-style fallback parsing.")
                 decomposed = {}
                 for key in ["db_query", "rag_query", "reasoning"]:
                     match = re.search(rf"{key}\s*:\s*(.*)", raw_content)
                     decomposed[key] = match.group(1).strip() if match else ""
+                print(f"DEBUG: Decomposed (fallback): {decomposed}")
 
             db_query = decomposed.get("db_query", "").strip()
             rag_query = decomposed.get("rag_query", "").strip()
             reasoning = decomposed.get("reasoning", "").strip()
+            print(f"DEBUG: Extracted: db_query='{db_query}', rag_query='{rag_query}', reasoning='{reasoning}'")
 
             sql_result_str = "DB 결과 없음"
             documents_str = "문서 없음"
 
             # Step 1: SQL 처리
             if db_query:
+                print(f"DEBUG: Starting Step 1: SQL processing for db_query: '{db_query}'")
                 try:
+                    print(f"DEBUG: Calling Azure Function SQL API URL: {AZURE_FUNCTION_SQL_API_URL}")
                     func_response = requests.post(
                         AZURE_FUNCTION_SQL_API_URL,
                         json={"question": db_query},
@@ -89,21 +118,26 @@ class SmartChatbotAPIView(APIView):
                     )
                     func_response.raise_for_status()
                     sql_json = func_response.json()
-                    sql_rows = sql_json.get("answer", [])
+                    sql_rows = sql_json.get("results", [])
                     if isinstance(sql_rows, list) and sql_rows:
                         sql_result_str = "\n".join(
                             [json.dumps(row, ensure_ascii=False) for row in sql_rows]
                         )
+                        print(f"DEBUG: SQL result received: {sql_result_str}")
                     else:
                         sql_result_str = "DB 결과 없음"
+                        print("DEBUG: No SQL results found from Azure Function.")
                 except Exception as e:
-                    print("SQL 호출 실패:", str(e))
+                    print(f"ERROR: SQL API call failed: {e}")
+                    traceback.print_exc()
                     sql_result_str = "데이터베이스 집계 결과를 불러오지 못했습니다."
 
-            # Step 2: RAG 처리
+            # Step 2: RAG 처리 (벡터 검색 우선)
             if rag_query:
+                print(f"DEBUG: Starting Step 2: RAG processing for rag_query: '{rag_query}'")
                 try:
                     # 1. 사용자 질문(rag_query_en)을 번역
+                    print("DEBUG: Translating RAG query from Korean to English.")
                     translate_response = openai_client.chat.completions.create(
                         model=os.getenv("AZURE_DEPLOYMENT_NAME"),
                         messages=[
@@ -112,40 +146,103 @@ class SmartChatbotAPIView(APIView):
                         ]
                     )
                     rag_query_en = translate_response.choices[0].message.content.strip()
+                    print(f"DEBUG: Translated RAG query (English): '{rag_query_en}'")
 
-                    # 2. 번역된 질문을 임베딩 벡터로 변환
-                    embedding_response = openai_client.embeddings.create(
-                        model=os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT"), # .env의 임베딩 배포 이름 사용
-                        input=rag_query_en,
-                        api_version=os.getenv("AZURE_OPENAI_EMBEDDING_API_VERSION") # .env의 임베딩 API 버전 사용
-                    )
-                    query_vector = embedding_response.data[0].embedding
+                    # 2. 벡터 검색 먼저 시도
+                    print("DEBUG: Trying vector search first for testing")
+                    search_success = False
 
-                    # 3. Azure AI Search 호출 시 벡터 쿼리 사용
-                    search_results = search_client.search(
-                        query_text=rag_query_en, # 하이브리드 검색을 위해 텍스트 쿼리도 함께 사용 (시맨틱 + 벡터)
-                        vectors=[
-                            {
-                                "value": query_vector, # 임베딩된 벡터 값
-                                "k": 3, # 검색할 K개의 최 근접 이웃
-                                "fields": "embedding" # 인덱스 JSON에 정의된 벡터 필드 이름: "embedding"
-                            }
-                        ],
-                        query_type="semantic", # 시맨틱 랭킹도 함께 사용
-                        semantic_configuration_name="default", # 시맨틱 검색 구성 이름
-                        top=3 # 최종 반환할 결과 문서의 수
-                    )
+                    try:
+                        print("DEBUG: Trying vector field: embedding")
+                        
+                        # 임베딩 생성
+                        embedding_response = openai_client.embeddings.create(
+                            model=os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT"),
+                            input=rag_query_en,
+                        )
+                        query_vector = embedding_response.data[0].embedding
+                        print(f"DEBUG: Embedding created. Vector length: {len(query_vector)}")
+                        
+                        # VectorizableTextQuery 사용
+                        vector_query = VectorizableTextQuery(
+                            text=rag_query_en,
+                            k_nearest_neighbors=3,
+                            fields="embedding"
+                        )
+                        
+                        # 벡터 검색 실행
+                        search_results = search_client.search(
+                            search_text=rag_query_en,
+                            vector_queries=[vector_query],
+                            top=3
+                        )
+                        
+                        docs = []
+                        for doc in search_results:
+                            print(f"DEBUG: Found document fields: {list(doc.keys())}")
+                            # chunk 필드에서 텍스트 가져오기
+                            if "chunk" in doc and doc["chunk"]:
+                                docs.append(doc["chunk"])
+                                print(f"DEBUG: Using text field: chunk")
+                        
+                        if docs:
+                            documents_str = "\n\n".join(docs)
+                            print(f"DEBUG: Vector search successful, found {len(docs)} documents")
+                            print(f"DEBUG: Documents (first 200 chars): {documents_str[:200]}...")
+                            search_success = True
+                        else:
+                            print("DEBUG: Vector search returned results but no text content found")
+                            
+                    except Exception as vector_error:
+                        print(f"DEBUG: Vector search failed: {vector_error}")
 
-                    docs = [doc.get("content", "") for doc in search_results if doc.get("content")]
-                    if docs:
-                        documents_str = "\n\n".join(docs)
-                    else:
+                    # 3. 벡터 검색이 실패했으면 기본 텍스트 검색 시도
+                    if not search_success:
+                        print("DEBUG: Vector search failed, trying basic text search")
+                        try:
+                            # 가장 기본적인 검색 (select 없이)
+                            search_results = search_client.search(
+                                search_text=rag_query_en,
+                                top=3
+                            )
+                            
+                            docs = []
+                            for doc in search_results:
+                                print(f"DEBUG: Found document fields: {list(doc.keys())}")
+                                # 여러 가능한 텍스트 필드명 시도
+                                text_content = None
+                                for field_name in ["chunk", "content", "text", "body", "description"]:
+                                    if field_name in doc and doc[field_name]:
+                                        text_content = doc[field_name]
+                                        print(f"DEBUG: Using text field: {field_name}")
+                                        break
+                                
+                                if text_content:
+                                    docs.append(text_content)
+                            
+                            if docs:
+                                documents_str = "\n\n".join(docs)
+                                print(f"DEBUG: Basic search successful, found {len(docs)} documents")
+                                print(f"DEBUG: Documents (first 200 chars): {documents_str[:200]}...")
+                                search_success = True
+                            else:
+                                print("DEBUG: Basic search returned results but no text content found")
+                                
+                        except Exception as basic_search_error:
+                            print(f"DEBUG: Basic search failed: {basic_search_error}")
+
+                    # 4. 모든 검색이 실패했을 때
+                    if not search_success:
+                        print("DEBUG: All search methods failed")
                         documents_str = "관련 문서를 찾을 수 없었습니다."
+
                 except Exception as e:
-                    print("문서 검색 실패:", str(e))
+                    print(f"ERROR: Document search failed: {e}")
+                    traceback.print_exc()
                     documents_str = "문서 검색에 실패했습니다. 오류: " + str(e)
 
             # Step 3: 프롬프트 구성
+            print("DEBUG: Constructing final prompt for LLM.")
             prompt_parts = [f"[사용자 질문]\n{user_question_kr}"]
             prompt_parts.append(f"[SQL 결과]\n{sql_result_str}")
             prompt_parts.append(f"[문서 검색 결과]\n{documents_str}")
@@ -157,7 +254,9 @@ class SmartChatbotAPIView(APIView):
             )
 
             final_prompt = "\n\n".join(prompt_parts)
+            print(f"DEBUG: Final prompt for LLM (first 500 chars):\n{final_prompt[:500]}...")
 
+            print(f"DEBUG: Calling final OpenAI completion with model: '{os.getenv('AZURE_DEPLOYMENT_NAME')}'")
             final_completion = openai_client.chat.completions.create(
                 model=os.getenv("AZURE_DEPLOYMENT_NAME"),
                 messages=[
@@ -166,7 +265,9 @@ class SmartChatbotAPIView(APIView):
                 ]
             )
             final_answer = final_completion.choices[0].message.content
+            print(f"DEBUG: Final answer received (first 200 chars): {final_answer[:200]}...")
 
+            print("DEBUG: Returning final API response (200 OK).")
             return Response({
                 "answer": final_answer,
                 "question_type": {
@@ -177,6 +278,6 @@ class SmartChatbotAPIView(APIView):
             }, status=status.HTTP_200_OK)
 
         except Exception as e:
-            import traceback
+            print(f"CRITICAL ERROR: An unexpected error occurred in post method: {e}")
             traceback.print_exc()
             return Response({"error": f"처리 실패: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
