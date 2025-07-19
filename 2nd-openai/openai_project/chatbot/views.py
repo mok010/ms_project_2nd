@@ -55,7 +55,7 @@ class SmartChatbotAPIView(APIView):
             )
 
             raw_content = decompose_response.choices[0].message.content.strip()
-            print("🧩 질문 분해 응답:\n", raw_content)
+            print("질문 분해 응답:\n", raw_content)
 
             try:
                 decomposed = json.loads(raw_content)
@@ -79,7 +79,7 @@ class SmartChatbotAPIView(APIView):
                     func_response = requests.post(
                         "http://localhost:7071/api/sqlquery",
                         json={"question": db_query},
-                        timeout=60
+                        timeout=360
                     )
                     func_response.raise_for_status()
                     sql_json = func_response.json()
