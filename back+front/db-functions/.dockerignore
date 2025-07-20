@@ -1,0 +1,45 @@
+# Python 개발 환경
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 에디터 및 빌드 시스템 파일
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# 버전관리 및 빌드 파일
+.git
+.gitignore
+Dockerfile
+.dockerignore
+
+# Local 개발 환경/민감 정보
+local.settings.json
+*.env
+.env
+*.db
+*.sqlite3
+*.log
+*.coverage
+
+# 테스트 및 빌드 산출물
+tests/
+test/
+build/
+dist/
+
+# Azure Functions 로컬 에뮬레이터/임시 파일
+*.azurite_*
+
+# Node.js, JavaScript 환경 임시파일 (필요 시)
+*.ts
+*.js
+npm-debug.log
+
+# 기타 실무에서 흔히 불필요한 항목
+*.DS_Store
+Thumbs.db
