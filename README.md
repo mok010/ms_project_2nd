@@ -19,7 +19,7 @@ Commercy는 이커머스 마케터를 위해 설계된 **실시간 통합 마케
 |------|-----------|
 | [mok010](https://github.com/mok010) | 챗봇 SQL 연동, 문서 벡터화, Teams 메시지 파이프라인 |
 | [LeeHooyo](https://github.com/LeeHooyo) | 챗봇 백엔드/프론트엔드 구축, UI 설계 및 구현 |
-| 안혜리 | 데이터 수집, 전처리, Power BI 대시보드 설계 |
+| [nina-gitty](https://github.com/nina-gitty) | 데이터 수집, 전처리, Power BI 대시보드 설계 |
 | [JaeHoonKOR](https://github.com/JaeHoonKOR) | ADF 기반 데이터 적재/전처리 파이프라인 구축 |
 | [JeongJYs](https://github.com/JeongJYs) | KPI 시각화 및 Semantic Model 구성 |
 | [mynx6y](https://github.com/mynx6y) | 통합 플랫폼 설계, 전체 프로젝트 관리 및 팀 협업 조율 |
