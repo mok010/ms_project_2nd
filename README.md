@@ -62,30 +62,25 @@ Commercy는 이커머스 마케터를 위해 설계된 **실시간 통합 마케
 
 ---
 
-##  시스템 아키텍처 요약
-
-```plaintext
-고객 행동 로그
-        ↓
-Azure SQL (Raw Data 적재)
-        ↓
-Azure Data Factory (전처리 + 집계)
-        ↓
-Azure Blob Storage
-        ↓
-① Power BI 대시보드
-② Stream Analytics → Function → Teams 알림
-③ 챗봇 질문 → LangChain / RAG 검색 → 응답 생성
-```
-
----
-
 ##  챗봇 처리 흐름
 
 1. 질문 유형 분류: `SQL`, `RAG`, `Reasoning`
 2. SQL: LangChain으로 쿼리 생성 → DB 조회
 3. RAG: PDF → 텍스트 추출 → 임베딩 → Azure AI Search 검색
 4. Reasoning: GPT 기반 응답 생성
+
+<img src="https://github.com/mok010/ms_project_2nd/blob/main/readme_gif/chatbot.gif">
+
+
+## 챗봇 RAG 학습 자동화 파이프라인 
+1. RAG 자료 업로드 
+<img src="https://github.com/mok010/ms_project_2nd/blob/main/readme_gif/pdf_fileupload.gif">
+2. 블록 트리거 발동 및 함수 앱 실행
+<img src="https://github.com/mok010/ms_project_2nd/blob/main/readme_gif/pdf_function.gif">
+3. 아웃풋 컨테이너에 JSON 파일 생성
+<img src="https://github.com/mok010/ms_project_2nd/blob/main/readme_gif/pdf_output.gif">
+4. AI SEARCH에 자료 학습
+<img src="https://github.com/mok010/ms_project_2nd/blob/main/readme_gif/pdf_aisearch.gif">
 
 ---
 
@@ -94,29 +89,38 @@ Azure Blob Storage
 ### 기본 인터페이스
 - 좌측 탭 전환 버튼을 통해 요약/매출/유입·이탈/뉴스 탭 전환
 - 상단 필터: 날짜, 고객군, 국가, 접속기기 등
+<img src="https://github.com/mok010/ms_project_2nd/blob/main/readme_gif/dash_1.png">
+
 
 ### 탭 구성
+<img src="https://github.com/mok010/ms_project_2nd/blob/main/readme_gif/dash_tab.gif">
 
 #### 1) 요약 탭
 - KPI 핵심 지표를 한눈에 요약
 - 자주 사용하는 지표를 빠르게 확인 가능
+<img src="https://github.com/mok010/ms_project_2nd/blob/main/readme_gif/dash_2.png">
+<img src="https://github.com/mok010/ms_project_2nd/blob/main/readme_gif/dash_fil.gif">
 
 #### 2) 매출 탭
 - Revenue, CVR, AOV 등 시계열 매출 분석
 - 상품 전환율, 주문 금액을 바탕으로 판매 전략 수립 지원
+<img src="https://github.com/mok010/ms_project_2nd/blob/main/readme_gif/dash_3.png">
 
 #### 3) 유입/이탈 탭
 - Session 수, 이탈률 분석
 - 병목 지점 파악 및 고객 리텐션 개선 전략 도출
+<img src="https://github.com/mok010/ms_project_2nd/blob/main/readme_gif/dash_4.png">
 
 #### 4) 뉴스 탭
 - 관련 뉴스 수집 및 감성 분석 (범위: -1.0 ~ 1.0)
 - 주제별 필터 제공 (모기업, 이커머스, 패션 등)
+<img src="https://github.com/mok010/ms_project_2nd/blob/main/readme_gif/dash_5.png">
 
 ---
 
 ##  Teams 메시지 시스템 구성
-
+<img src="https://github.com/mok010/ms_project_2nd/blob/main/readme_gif/teams_img.png">
+<img src="https://github.com/mok010/ms_project_2nd/blob/main/readme_gif/teams_message.gif">
 ### 파이프라인 흐름
 ```
 SQL DB → ADF 전처리 → Blob 저장 → Stream Analytics 수신
@@ -133,6 +137,11 @@ SQL DB → ADF 전처리 → Blob 저장 → Stream Analytics 수신
 
 ### 이벤트 버퍼링 전략
 - 실시간 전송 대신 1분 단위로 로그를 묶어 저장 (네트워크 부하 최소화)
+
+---
+
+## 통합 서비스 웹 사이트
+<img src="https://github.com/mok010/ms_project_2nd/blob/main/readme_gif/website.gif">
 
 ---
 
