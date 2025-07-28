@@ -121,6 +121,7 @@ Commercy는 이커머스 마케터를 위해 설계된 **실시간 통합 마케
 ##  Teams 메시지 시스템 구성
 <img src="https://github.com/mok010/ms_project_2nd/blob/main/readme_gif/teams_img.png">
 <img src="https://github.com/mok010/ms_project_2nd/blob/main/readme_gif/teams_message.gif">
+
 ### 파이프라인 흐름
 ```
 SQL DB → ADF 전처리 → Blob 저장 → Stream Analytics 수신
