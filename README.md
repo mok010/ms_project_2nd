@@ -167,6 +167,9 @@ SQL DB → ADF 전처리 → Blob 저장 → Stream Analytics 수신
 
 ---
 
+## 더 자세한 구현 과정
+https://star-ccomputer-go.tistory.com/183
+
 > “Commercy는 단순한 분석 도구가 아닌, 마케터의 실시간 의사결정을 위한 전략 파트너입니다.”
 ```
 
