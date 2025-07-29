@@ -169,7 +169,7 @@ SQL DB → ADF 전처리 → Blob 저장 → Stream Analytics 수신
 ---
 
 ## 더 자세한 구현 과정
-https://star-ccomputer-go.tistory.com/183
+https://star-ccomputer-go.tistory.com/category/Data/Commercy%3A%20%EB%A7%88%EC%BC%80%ED%84%B0%EB%A5%BC%20%EC%9C%84%ED%95%9C%20%EC%8B%A4%EC%8B%9C%EA%B0%84%20%EC%9D%B4%EC%BB%A4%EB%A8%B8%EC%8A%A4%20%EB%B6%84%EC%84%9D%20%EC%86%94%EB%A3%A8%EC%85%98%20%EA%B5%AC%EC%B6%95%EA%B8%B0
 
 > “Commercy는 단순한 분석 도구가 아닌, 마케터의 실시간 의사결정을 위한 전략 파트너입니다.”
 ```
